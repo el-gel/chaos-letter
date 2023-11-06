@@ -45,25 +45,29 @@ The context is to help the player being asked know what's going on"""
             chosen = player.respond_to_query(privateQ)
         except NotImplementedError:
             chosen = None
-            print("Player hasn't implemented a proper response for " + str(self))
+            log.error("Player hasn't implemented a proper response for " + str(self))
             if self.is_(NYARLATHOTEP_RETURN):
-                print("Possibly iterated on a NyarlathotepOption")
+                log.error("Possibly iterated on a NyarlathotepOption")
         except AttributeError:
             chosen = None
-            print("Player tried to edit the query they were given.")
+            log.error("Player tried to edit the query they were given.")
         if chosen in privateQ.options:
             i = privateQ.options.index(chosen)
             return self.outcome(self.options[i])
         else:
             # I guess we choose for them
-            print("Player %s didn't pick a valid option" % player.name)
+            log.error("Player %s didn't pick a valid option" % player.name)
             return self.outcome(random.choice(self.options))
 
     def __str__(self):
         return str(self.context)
 
 
-def which_query(play_options):
+def pass_through(chosen):
+    """Used where we just want the chosen option, not to do anything with it."""
+    return chosen
+
+def which_play_query(play_options):
     """Get a WhichPlayContext query, asking which card to play."""
     def which_outcome(chosen):
         chosen.trigger()
@@ -86,7 +90,7 @@ Maybe the options should be 'which order do you want to play in?'"""
         options=(play_options,),
         outcome=cos_outcome)
 
-def who_starts_query(game, asked):
+def ask_who_starts(game, asked):
     """Ask a WhoStartsContext query."""
     def who_outcome(chosen):
         def do_set(ev):
@@ -98,19 +102,23 @@ def who_starts_query(game, asked):
         options=game.players,
         outcome=who_outcome).ask(asked)
 
-def which_card_query(game, asked, context):
+def ask_which_card(asked, context):
     """Ask which card to get involved in something."""
-    def which_outcome(chosen):
-        # If the hand is more than 1, invalidate so cards can't be tracked
-        hand_size = len(asked.hand)
-        if hand_size > 1:
-            for card in asked.hand:
-                card.invalidate_private()
-        return chosen
+    # If the hand is more than 1, invalidate so cards can't be tracked
+    hand_size = len(asked.hand)
+    if hand_size > 1:
+        for card in asked.hand:
+            card.invalidate_private()
+            card.invalidate_public()
     return Query(context=WhichCardContext(context),
                  options=asked.hand,
-                 outcome=which_outcome).ask(asked)
+                 outcome=pass_through).ask(asked)
 
+def ask_nope_query(asked, play_context):
+    """Ask whether the player wants to Nope a specific play."""
+    return Query(context=UseNopeContext(play_context),
+                 options=(NO,YES),
+                 outcome=pass_through).ask(asked)
 
 # Specially created option classes, for specific types of Querys
 

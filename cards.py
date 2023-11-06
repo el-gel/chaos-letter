@@ -79,8 +79,8 @@ class Card(PublicUser, PrivateUser):
     type_ = DEFAULT
     value = -1
     insane = 0 # Allow for this being > 1. E.g. "this card counts as triply insane"
-    cardback = 0
-    cardfront = 0
+    cardback = DEFAULT
+    cardfront = BLANK
     
     def __init__(self, cardback=None, cardfront=None):
         # The only potential distinguishing features between different cards is the back and front images
@@ -96,6 +96,7 @@ class Card(PublicUser, PrivateUser):
         self.holder = None
         self.controller = None # Used for the player that's getting the effect, e.g. a reverser
         self.played_as = None # PlayOption to track how it was used; e.g. as Jester or Assassin. Managed by card logic, not Game
+        self.played_events = () # Track the events this card caused on play. Internal use for e.g. cancelling
         self.turn_played = -1 # -1 for not played, 0 is 'played, but before they got a real turn' e.g. Nope
         self.discarded = False
         self.to_invalidate = [] # Tracking copies of PublicInfo we've passed out
@@ -148,9 +149,11 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         """All possible targets in the game."""
         return self.game.targetable_players(not_including=None if include_me else self.controller)
     
-    def option(self, mode=None, targets=(), parameters=None, str_fmt=None):
+    def option(self, mode=None, targets=(), parameters=None, quick=False, can_nope=True, str_fmt=None):
         """Makes a PlayOption with these parameters."""
-        po = PlayOption(self, mode, targets, parameters)
+        po = PlayOption(self, mode=mode, targets=targets,
+                        parameters=parameters, quick=quick,
+                        can_nope=can_nope)
         if str_fmt:
             po.str_fmt = str_fmt
         return po
@@ -164,15 +167,35 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         # Pause the event queue while we put the events on the stack - want the discard to be there alongside the play
         # Or rather, don't want the queue to clear when we put the discard on, which may include an already played card being responded to
         self.game.pause_events()
-        self.game.queue_events(self.play_events(play_option),clear=False)
+        self.played_events = self.play_events(play_option)
+        self.game.queue_events(self.played_events,clear=False)
         # Before the play events fire, do a discard
         trigger_discard(self.game, self.holder, PLAYED, self)
         # Now start the queue again
+        self.game.resume_events()
+
+    def trigger_quick_play(self, play_option):
+        """Puts events into the game for a quick play. Doesn't need overriding."""
+        self.played_as = play_option
+        self.turn_played = self.holder.turns_played
+        # Pause while we set queue events
+        self.game.pause_events()
+        self.played_events = self.play_events(play_option)
+        self.game.queue_events(self.played_events, clear=False)
+        # Before the play happens, do a discard then a draw
+        trigger_draw(self.game, self.holder, QUICK_PLAY)
+        trigger_discard(self.game, self.holder, PLAYED, self)
+        # Now send off
         self.game.resume_events()
         
     def play_events(self, play_option):
         """This stub is 'run on_play'. Linked, out of turn, or multiple effect cards need to override this method."""
         return [get_play_event(play_option, resolve_effect=lambda ev: self.on_play(ev))]
+
+    def cancel(self, source):
+        """Cancel all events this card produced."""
+        for ev in self.played_events:
+            ev.cancel(source)
 
     # Trigger methods
     # on_XXX methods are run as resolution effects and get passed the event during resolution.
@@ -180,7 +203,10 @@ The holder's Player info is also invalidated, which will trigger recreating rele
 
     def on_play(self, play_event):
         """Used with simple 'one thing' cards. More complex cards should override play_events."""
-        # play_option = play_event.context.play_option
+        raise NotImplementedError()
+
+    def on_quick_play(self, play_event):
+        """Used  with simple 'one thing' quick plays. Override quick_play_events for more complex cards."""
         raise NotImplementedError()
     
     def on_draw(self, draw_event):
@@ -223,11 +249,6 @@ The holder's Player info is also invalidated, which will trigger recreating rele
 
     # Convenience methods.
 
-    def redraw(self):
-        # TODO: for use by cards that require a redraw when played in some forms.
-        # Should return event(s) to add to the play events
-        pass
-
     def give_to(self, player):
         """Give this card to a player."""
         player.give(self)
@@ -267,8 +288,8 @@ The holder's Player info is also invalidated, which will trigger recreating rele
 # TODO: Should these be static?
 class PublicPlayOption(PublicData):
     def __str__(self):
-        ret = str(self.card) + " " if "card" in self.__dict__ else ""
-        ret += "played as " + str(self.mode)
+        ret = str(self.card)
+        ret += " played as " + str(self.mode)
         ret += " targeting " + liststr(self.targets)
         ret += " with " + str(self.parameters) if self.parameters else ""
         return ret
@@ -276,29 +297,34 @@ class PublicPlayOption(PublicData):
 
 class PrivatePlayOption(PrivateData):
     def __str__(self):
-        ret = str(self.card) + " " if "card" in self.__dict__ else ""
-        ret += "played as " + str(self.mode)
-        ret += " targeting " + str(self.targets)
+        ret = str(self.card)
+        ret += " played as " + str(self.mode)
+        ret += " targeting " + liststr(self.targets)
         ret += " with " + str(self.parameters) if self.parameters else ""
         return ret
 
 
 class PlayOption(PublicUser, PrivateUser):
-    _PUBLIC_ATTRS = ("card", "mode", "targets", "parameters", "cancelled")
+    _PUBLIC_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope")
     _PUBLIC_CLASS = PublicPlayOption
-    _PRIVATE_ATTRS = ("card", "mode", "targets", "parameters", "cancelled")
+    _PRIVATE_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope")
     _PRIVATE_CLASS = PrivatePlayOption
-    def __init__(self, card, mode=None, targets=(), parameters=None):
+    def __init__(self, card, mode=None, targets=(), parameters=None, quick=False, can_nope=False):
         self.card = card
         self.mode = mode if mode else card.name # E.g. Jester/Assassin. Default is fine for single mode cards
         self.targets = targets
         self.parameters = parameters if parameters else {} # E.g. Guard choice
         self.cancelled = False
+        self.quick = quick
+        self.can_nope = can_nope
         self._reset_public_info()
         self._reset_private_info()
 
     def trigger(self):
-        self.card.trigger_play_events(self)
+        if self.quick:
+            self.card.trigger_quick_play(self)
+        else:
+            self.card.trigger_play_events(self)
 
     @property
     def target(self):

@@ -303,7 +303,7 @@ If none of them left either, then I guess give them a braincase?"""
             Event(StartingContext(starting_player, RANDOM),
                   resolve_effect=do_set).queue(self)
         else:
-            who_starts_query(self, self.last_loser)
+            ask_who_starts(self, self.last_loser)
 
     def check_one_left(self):
         left = None
@@ -414,9 +414,10 @@ If none of them left either, then I guess give them a braincase?"""
             self.run_query(player, mult_query)
         elif force_ops[1]:
             # Must play one of these cards
-            self.run_query(player, which_query(force_ops[1]))
+            self.run_query(player, which_play_query(force_ops[1]))
         else:
-            self.run_query(player, which_query(force_ops[0]))
+            # Nothing's forcing
+            self.run_query(player, which_play_query(force_ops[0]))
         return self.active and player.alive
 
     def end_turn(self, player):

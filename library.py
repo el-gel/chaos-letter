@@ -29,7 +29,7 @@ class Handmaid(Card):
 class ElderSign(Handmaid):
     name = "Elder Sign"
     type_ = ELDER_SIGN
-    cardback = 1
+    cardback = LOVECRAFT
 
 class LiberIvonis(ElderSign):
     name = "Liber Ivonis"
@@ -46,7 +46,7 @@ class LiberIvonis(ElderSign):
         if self.played_as and self.played_as.mode == INSANE and \
            self.controller == ctx.player:
             def cancel_death(ev):
-                ev.context.death_event.cancel()
+                ev.context.death_event.cancel(self)
             self.do_event(
                 CancelDeathContext(ctx.player, source=self,
                                    death_event=death_event, death_ctx=ctx),
@@ -87,7 +87,7 @@ class Guard(Card):
 class Investigator(Guard):
     name = "Investigator"
     type_ = INVESTIGATOR
-    cardback = 1
+    cardback = LOVECRAFT
 
 class DeepOnes(Investigator):
     name = "Deep Ones"
@@ -133,7 +133,7 @@ class Priest(Card):
         if po.targets:
             for target in po.targets:
                 # Event doesn't actually do anything, the important bit is the info sent
-                seen_card = which_card_query(self.game, target, play_event.context)
+                seen_card = ask_which_card(target, play_event.context)
                 see_context = SeeCardContext(players=(self.controller, target),
                                              card=seen_card,
                                              source=self)
@@ -146,6 +146,42 @@ class Priest(Card):
             return [(self.option(targets=(), str_fmt="Looking at nothing"), 0)]
         return [(rr,0) for rr in ret]
 
+
+class CatsOfUlthar(Priest):
+    name = "Cats of Ulthar"
+    type_ = CATS
+    cardback = LOVECRAFT
+    def sane_play_options(self):
+        ret = super().sane_play_options()
+        for op, force in ret:
+            op.str_fmt = "Meow."
+        return ret
+
+
+class Nope(Card):
+    name = "Nope"
+    type_ = NOPE
+    value = 2
+    insane = 1
+    cardback = LOVECRAFT
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        if po.mode == ACTIVE_NOPE:
+            po.parameters["cancelling"].cancel(self)
+    def see_card_play_event(self, ev):
+        if self.discarded:
+            return
+        ctx = ev.context
+        if ctx.play_option.can_nope and ctx.card.controller != self.holder and \
+           not ev.cancelled:
+            if ask_nope_query(self.holder, ctx) == YES:
+                nope_option = self.option(mode=ACTIVE_NOPE,
+                                          targets=(ctx.card.controller,),
+                                          parameters={"cancelling":ctx.card},
+                                          quick=True)
+                self.trigger_quick_play(nope_option)
+                                          
+    
 ##ASSASSIN
 ##JESTSASSIN
 ##GUARD

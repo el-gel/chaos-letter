@@ -50,11 +50,11 @@ These are not shown to Players; only internal use."""
         # Game object will handle getting players and Cards to respond.
     def interrupt(self):
         self.fired = False
-    def cancel(self):
+    def cancel(self, source):
         # TODO: Consider adding a cause here
-        self.cancelled = True
+        self.cancelled = source
         if self.is_(CARD_PLAY):
-            self.context.play_option.cancelled = True
+            self.context.play_option.cancelled = source
             
     def then_run(self, other):
         """A.then_run(B) means run B after A, if A succeeds."""
@@ -142,7 +142,7 @@ def trigger_draw(game, player, source, take_from_aside=True):
         try:
             card = game.draw(take_from_aside)
         except EmptyDeckException:
-            ev.cancel()
+            ev.cancel(DECK_EMPTY)
             game.end_round(DECK_EMPTY)
             return
         ev.context.card = card

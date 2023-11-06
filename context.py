@@ -162,6 +162,13 @@ class WhichCardContext(Context):
     def __init__(self, source):
         self.source = source
 
+class UseNopeContext(Context):
+    type_ = USE_NOPE
+    str_fmt = "Asked whether to nope {po}."
+    def __init__(self, play_context):
+        self.play_context = play_context
+        self.play_option = play_context.play_option
+
 # Event and Info contexts
 
 class JoinContext(Context):

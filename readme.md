@@ -313,3 +313,4 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Make repl_str better.
 - json transformation of public/private objects / game state, as a way to pass data to other programs.
 - Maybe linting and typing. If I can be bothered facing that. Nb, this will not be consistently enforced after adding, so I'd rather do this later in one big go, when it's time for others to be implementing bots etc. and there's not going to be much development going on.
+- Cancelled events should give info if cancelled still.
