@@ -303,18 +303,13 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Discuss the weird questions and edge cases with the group.
 - Write a usable, interactable Player.
 - Write the pre_ and post_info on all the Contexts.
-- Refactor Event so it doesn't need to store game.
 - Refactor everything so the dependencies are acyclic.
-- Then add a way for the PlayerActions to only see sanitised, safe objects (e.g., can't just ask what's in another Player's hand.)
-    - Maybe via everything having a .sanitised() method, and all Info and Querys going into the PlayerActions are sanitised.
-    - Nb; cannot use subclasses, must use a single base class.
 - Write help text and instructions for others making PlayerActions.
 - Write a game manual / set of rules that matches what actually happens here.
 - Take pictures of the real card backs and card fronts, to potentially use in graphical form.
 - Sort out circular file import dependencies. utils.py seems main problem.
-- Refactor the readonly classes (Public / Private) to the best method.
 - A 'dump into interpreter' player action object. Good for debugging.
 - Consider a cheating detector that checks whether the data has changed in a Public/Private data class after a player action.
-- A "context splitter" that turns on_event(ctx) into on_<ctx_type>(ctx).
 - Make repl_str better.
 - json transformation of public/private objects / game state, as a way to pass data to other programs.
+- Maybe linting and typing. If I can be bothered facing that. Nb, this will not be consistently enforced after adding, so I'd rather do this later in one big go, when it's time for others to be implementing bots etc. and there's not going to be much development going on.
