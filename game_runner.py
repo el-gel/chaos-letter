@@ -11,7 +11,7 @@ from game import *
 
 hdeck = [Handmaid() for i in range(1)] + [LiberIvonis() for i in range(10)]
 gdeck = [Guard() for j in range(10)] + [DeepOnes() for k in range(1)]
-pdeck = [Priest() for i in range(10)]
+pdeck = [Priest() for i in range(10)] + [Prince() for i in range(10)]
 ndeck = [Nope() for i in range(10)]
 deck= hdeck+gdeck+pdeck+ndeck
 for i in range(len(deck)):

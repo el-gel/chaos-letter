@@ -125,12 +125,7 @@ class Priest(Card):
     def on_play(self, play_event):
         po = play_event.context.play_option
         for target in living(po.targets):
-            # Event doesn't actually do anything, the important bit is the info sent
-            seen_card = ask_which_card(target, play_event.context)
-            see_context = SeeCardContext(players=(self.controller, target),
-                                         card=seen_card,
-                                         source=self)
-            self.do_event(see_context)
+            trigger_look(self.game, self.controller, target, source=po, context=play_event.context)
     def sane_play_options(self):
         ret = []
         for player in self.valid_targets():
@@ -178,7 +173,7 @@ class Nope(Card):
     def on_play(self, play_event):
         po = play_event.context.play_option
         if po.mode == ACTIVE_NOPE:
-            po.parameters["cancelling"].cancel(self)
+            po.parameters["cancelling"].card.cancel(self)
     def see_card_play_event(self, ev):
         if self.discarded:
             return
@@ -188,10 +183,33 @@ class Nope(Card):
             if ask_nope_query(self.holder, ctx) == YES:
                 nope_option = self.option(mode=ACTIVE_NOPE,
                                           targets=(ctx.card.controller,),
-                                          parameters={"cancelling":ctx.card},
+                                          parameters={"cancelling":ctx.play_option},
                                           quick=True)
                 self.trigger_quick_play(nope_option)
-                                          
+
+class Prince(Card):
+    name = "Prince"
+    type_ = PRINCE
+    value = 5
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        # Should always have a target for a Prince
+        for target in po.targets:
+            disc_card = ask_which_card(target, play_event.context)
+            # Events will fire in reverse order here.
+            trigger_draw(self.game, target, source=self)
+            trigger_discard(self.game, target, source=self, card=disc_card)
+    def sane_play_options(self):
+        ret = []
+        for player in self.valid_targets(include_me=True):
+            ret.append(self.option(targets=(player,),
+                                   str_fmt="Making {po:target} discard."))
+        return [(rr,0) for rr in ret]
+
+class Randolph(Prince):
+    name = "Randolph Carter"
+    type_ = RANDOLPH
+    cardback = LOVECRAFT
     
 ##ASSASSIN
 ##JESTSASSIN

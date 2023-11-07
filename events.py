@@ -4,6 +4,7 @@ log = logging.getLogger(__name__)
 from cl_constants import *
 from context import *
 from info import *
+from queries import *
 from utils import *
 
 # Big question; do I use a subclass for each Info/Event, or one big class?
@@ -67,6 +68,7 @@ These are not shown to Players; only internal use."""
         """Run the actual effect of the event, if it wasn't prevented, and fire post events"""
         self.resolved = True
         if self.cancelled:
+            # TODO: Cancelled info?
             return
         # Events should not fire during resolution - but they may be put on the queue
         game.pause_events()
@@ -156,6 +158,24 @@ def trigger_round_win(game, player, source):
         game.end_round(source, winner=player)
     Event(WinContext(player, source),
           resolve_effect=do_win).queue(game)
+
+def trigger_look(game, looker, lookee, source=None, context=None, whole_hand=False):
+    """Show lookee's card to looker, due to source.
+
+source is e.g. END_OF_GAME, or the play_option that triggered.
+context is the context of the card play event relevant.
+If source isn't provided, will take context.play_option for source."""
+    if whole_hand:
+        cards = lookee.hand
+    else:
+        cards = (ask_which_card(lookee, context),)
+    for card in cards:
+        # Event doesn't do anything, but the Info sent out shows the card to looker
+        Event(SeeCardContext(players=(looker, lookee),
+                             card=card,
+                             source=source if source else context.play_option
+                             )).queue(game)
+    
 
 def get_play_event(play_option, resolve_effect):
     """Get, but don't trigger, a play event."""
