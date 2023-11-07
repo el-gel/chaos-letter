@@ -33,6 +33,8 @@ def liststr(obj):
 
 
 
+def living(players):
+    return [player for player in players if player.alive]
 
 
 def num_args(f):

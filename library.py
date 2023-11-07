@@ -62,17 +62,14 @@ class Guard(Card):
     def on_play(self, play_event):
         po = play_event.context.play_option
         # May not have been able to target anyone. Maybe we get multiple targets later.
-        if po.targets and po.parameters["number"] is not None:
-            for target in po.targets:
-                if not target.alive:
-                    continue
-                hit = False
-                for card in target.hand:
-                    if card.value == po.parameters["number"]:
-                        hit = True
-                        break
-                if hit:
-                    trigger_death(self.game, target, source=po, card=self)
+        for target in living(po.targets):
+            hit = False
+            for card in target.hand:
+                if card.value == po.parameters["number"]:
+                    hit = True
+                    break
+            if hit:
+                trigger_death(self.game, target, source=po, card=self)
     def sane_play_options(self):
         ret = []
         for player in self.valid_targets():
@@ -95,25 +92,22 @@ class DeepOnes(Investigator):
     insane = 1
     def on_play(self, play_event):
         po = play_event.context.play_option
-        if po.targets:
-            for target in po.targets:
-                if not target.alive:
-                    continue
-                hit = False
-                if po.mode == INSANE:
-                    for card in target.hand:
-                        if card.value == 1:
-                            hit = True
-                            break
+        for target in living(po.targets):
+            hit = False
+            if po.mode == INSANE:
+                for card in target.hand:
+                    if card.value == 1:
+                        hit = True
+                        break
+            if hit:
+                trigger_death(self.game, target, source=po, card=self)
+            elif po.parameters["number"] is not None:
+                for card in target.hand:
+                    if card.value == po.parameters["number"]:
+                        hit = True
+                        break
                 if hit:
                     trigger_death(self.game, target, source=po, card=self)
-                elif po.parameters["number"] is not None:
-                    for card in target.hand:
-                        if card.value == po.parameters["number"]:
-                            hit = True
-                            break
-                    if hit:
-                        trigger_death(self.game, target, source=po, card=self)
     def insane_play_options(self):
         # Same as sane options, but with mode INSANE
         to_insane = self.sane_play_options()
@@ -130,22 +124,21 @@ class Priest(Card):
     value = 2
     def on_play(self, play_event):
         po = play_event.context.play_option
-        if po.targets:
-            for target in po.targets:
-                # Event doesn't actually do anything, the important bit is the info sent
-                seen_card = ask_which_card(target, play_event.context)
-                see_context = SeeCardContext(players=(self.controller, target),
-                                             card=seen_card,
-                                             source=self)
-                self.do_event(see_context)
+        for target in living(po.targets):
+            # Event doesn't actually do anything, the important bit is the info sent
+            seen_card = ask_which_card(target, play_event.context)
+            see_context = SeeCardContext(players=(self.controller, target),
+                                         card=seen_card,
+                                         source=self)
+            self.do_event(see_context)
     def sane_play_options(self):
         ret = []
         for player in self.valid_targets():
-            ret.append(self.option(targets=(player,), str_fmt="Looking at {po:target}'s hand"))
+            ret.append(self.option(targets=(player,),
+                                   str_fmt="Looking at {po:target}'s hand"))
         if not ret:
-            return [(self.option(targets=(), str_fmt="Looking at nothing"), 0)]
+            return [(self.option(targets=(), str_fmt="Looking at nothing."), 0)]
         return [(rr,0) for rr in ret]
-
 
 class CatsOfUlthar(Priest):
     name = "Cats of Ulthar"
@@ -156,6 +149,24 @@ class CatsOfUlthar(Priest):
         for op, force in ret:
             op.str_fmt = "Meow."
         return ret
+
+class Baroness(Priest):
+    name = "Baroness"
+    type_ = BARONESS
+    value = 3
+    def sane_play_options(self):
+        ret = []
+        for player1 in self.valid_targets():
+            ret.append(self.option(targets=(player1,),
+                                   str_fmt="Looking at {po:target} only."))
+            for player2 in self.valid_targets():
+                if player2 == player1:
+                    continue
+                ret.append(self.option(targets=(player1,player2),
+                                       str_fmt="Looking at {po:targets}."))
+        if not ret:
+            return [(self.option(targets=(), str_fmt="Looking at nothing."), 0)]
+        return [(rr,0) for rr in ret]
 
 
 class Nope(Card):
