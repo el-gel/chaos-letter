@@ -43,6 +43,8 @@ class LiberIvonis(ElderSign):
         super().on_play(play_event)
     def see_death_event(self, death_event):
         ctx = death_event.context
+        if death_event.cancelled:
+            return # Don't need to do anything
         if self.played_as and self.played_as.mode == INSANE and \
            self.controller == ctx.player:
             def cancel_death(ev):
@@ -210,7 +212,49 @@ class Randolph(Prince):
     name = "Randolph Carter"
     type_ = RANDOLPH
     cardback = LOVECRAFT
-    
+
+# TODO: Capitalist.
+
+class Princess(Card):
+    name = "Princess"
+    type_ = PRINCESS
+    value = 8
+    def trigger_play_events(self, play_option):
+        # Actually have to override the SHUFFLE mode.
+        if play_option.mode == SHUFFLE:
+            # Don't set the play option for this card, or turn_played. Don't discard or play.
+            trigger_shuffle(self.game, self, play_option)
+        else:
+            super().trigger_play_events(play_option)
+    def on_play(self, play_event):
+        pass
+    def on_discard(self, discard_event):
+        # Always die. 
+        trigger_death(self.game, discard_event.context.player,
+                      source=discard_event.context.source, card=self)
+    def sane_play_options(self):
+        # Princess can't be nope'd
+        # TODO: if multiple 8's in hand, shuffle in. Rule phrasing is "if every card in hand is an 8, you may shuffle one in".
+        # This will require overriding trigger_play_events, to prevent the discard.
+        ret = [(self.option(can_nope=False, str_fmt="To die."), 0)]
+        if all([card.value == 8 for card in self.holder.hand]):
+            ret.append((self.option(mode=SHUFFLE, can_nope=False,
+                                    str_fmt="Shuffling unsuspiciously."), 0))
+        return ret
+
+class Necronomicon(Princess):
+    name = "Necronomicon"
+    type_ = NECRONOMICON
+    cardback = LOVECRAFT
+
+class BrainCase(Princess):
+    name = "MiGo Brain Case"
+    type_ = BRAIN_CASE
+    cardback = LOVECRAFT
+    value = 0
+
+# TODO: Cthulu.
+
 ##ASSASSIN
 ##JESTSASSIN
 ##GUARD

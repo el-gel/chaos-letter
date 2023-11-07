@@ -49,6 +49,7 @@ for type_ in CARD_TYPES:
 
 # Card modes
 ACTIVE_NOPE = "ACTIVE_NOPE"
+SHUFFLE = "SHUFFLE"
 
 # Card backs and fronts
 LOVECRAFT = "LOVECRAFT"

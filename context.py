@@ -332,3 +332,10 @@ class SeeCardContext(Context):
         self.players = players
         self.card = card
         self.source = source
+
+class ShuffleContext(Context):
+    type_ = SHUFFLE
+    str_fmt = "Shuffled {c} into the deck."
+    def __init__(self, card, source):
+        self.card = card
+        self.source = source

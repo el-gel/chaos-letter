@@ -158,6 +158,11 @@ The holder's Player info is also invalidated, which will trigger recreating rele
             po.str_fmt = str_fmt
         return po
 
+    # TODO: option_for_each, which would take a list of modes, targets, parameters etc and return the right list of tuples
+    # Need to decide how this is most useful; for each valid target? Provided list of target tuples? Provided list of targets and number in each option tuple?
+    # Sensible defaults? Detection of list of targets vs list of target tuples? Forcing value? How to do for each parameter option?
+    # Purpose of this function is to make library card code simpler
+
     # Make events happen.
     
     def trigger_play_events(self, play_option):
@@ -175,7 +180,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         self.game.resume_events()
 
     def trigger_quick_play(self, play_option):
-        """Puts events into the game for a quick play. Doesn't need overriding."""
+        """Puts events into the game for a quick play. Doesn't usually need overriding."""
         self.played_as = play_option
         self.turn_played = self.holder.turns_played
         # Pause while we set queue events
@@ -253,17 +258,21 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         """Give this card to a player."""
         player.give(self)
 
-    def take_from(self):
+    def take_from_holder(self):
         """Take this card away from its holder, if they exist."""
         if self.holder:
-            self.holder.take(self)
+            if self.discarded:
+                self.holder.take_from_discard(self)
+            else:
+                self.holder.take(self)
 
     def swap_to(self, other):
         """If this card is held by someone, take this card from them. Then, give it to another."""
-        self.take_from()
+        self.take_from_holder()
         self.give_to(other)
 
     def do_event(self, context, resolve_effect=None):
+        """Run an Event with this context and effect."""
         Event(context, resolve_effect).queue(self.game)
 
     def do_after(self, event, context, resolve_effect=None):
@@ -272,6 +281,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
 
     @property
     def faceup(self):
+        # Possibly there's a 'not discarded, but faceup' thing. Like a card that makes someone play with a revealed hand.
         return self.discarded
         
     def like(self, other):

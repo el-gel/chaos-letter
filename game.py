@@ -158,6 +158,13 @@ class Game:
     def shuffle(self):
         random.shuffle(self.deck)
 
+    def shuffle_in(self, card):
+        self.deck.append(card)
+        self.shuffle()
+        for card in self.deck:
+            card.invalidate_public()
+            card.invalidate_private()
+
     def draw(self, from_aside=False):
         """Try to remove the top card of the deck, and return it.
 
@@ -376,9 +383,11 @@ If none of them left either, then I guess give them a braincase?"""
 
     def insanity_checks(self, player):
         """Run insanity checks for the player."""
+        # TODO: Cancel later events if player dies.
         def trigger_checks(ev):
             def try_check(ev):
                 if not player.alive:
+                    # go through the other events and cancel. Only if i > ev.i
                     return
                 try:
                     disc_card = self.draw()

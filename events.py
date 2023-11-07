@@ -115,6 +115,7 @@ These are not shown to Players; only internal use."""
 # PlayOption of another Card
 # INSANITY_CHECK
 # *Not* annhilation.
+# Want to keep source and card, for e.g. Princess killed, but due to a different card.
 def trigger_death(game, player, source=None, card=None):
     if not player.alive:
         # Don't try to kill someone who's already dead
@@ -175,6 +176,15 @@ If source isn't provided, will take context.play_option for source."""
                              card=card,
                              source=source if source else context.play_option
                              )).queue(game)
+
+def trigger_shuffle(game, card, source):
+    """Shuffle a card into the deck, taking it from their player if necessary."""
+    def do_shuffle(ev):
+        card.take_from_holder()
+        game.shuffle_in(card)
+    Event(ShuffleContext(card=card,
+                         source=source),
+          resolve_effect=do_shuffle).queue(game)
     
 
 def get_play_event(play_option, resolve_effect):
