@@ -10,6 +10,7 @@ class RandomActions(PlayerActions):
     def info_event(self, info):
         pass # I don't care!
 
+
 class LoggingActions(PlayerActions):
     def setup(self):
         self.infos = []

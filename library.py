@@ -2,10 +2,10 @@ import logging
 log = logging.getLogger(__name__)
 
 from cards import *
-from events import *
+from event_utils import *
 from cl_constants import *
 from utils import *
-from queries import *
+from query_utils import *
 from info import *
 from players import *
 
@@ -54,7 +54,7 @@ class LiberIvonis(ElderSign):
                                    death_event=death_event, death_ctx=ctx),
                 resolve_effect=cancel_death)
     def insane_play_options(self):
-        return [(self.option(mode=INSANE, str_fmt="To go immortal"), 0)]
+        return self.sane_ops_as_insane(str_fmt="To go immortal.")
 
 
 class Guard(Card):
@@ -111,13 +111,8 @@ class DeepOnes(Investigator):
                 if hit:
                     trigger_death(self.game, target, source=po, card=self)
     def insane_play_options(self):
-        # Same as sane options, but with mode INSANE
-        to_insane = self.sane_play_options()
-        for sop, force in to_insane:
-            sop.mode = INSANE
-            if sop.targets:
-                sop.str_fmt = "Does {po:target} have a 1 or a {po:number}?"
-        return to_insane
+        # Same as sane options, but with mode INSANE. Doesn't do the right str_fmt when untargeted though.
+        return self.sane_ops_as_insane(str_fmt="Does {po:target} have a 1 or a {po:number}?")
 
 
 class Priest(Card):
@@ -200,7 +195,7 @@ class Prince(Card):
             disc_card = ask_which_card(target, play_event.context)
             # Events will fire in reverse order here.
             trigger_draw(self.game, target, source=self)
-            trigger_discard(self.game, target, source=self, card=disc_card)
+            trigger_discard(self.game, target, source=po, card=disc_card)
     def sane_play_options(self):
         ret = []
         for player in self.valid_targets(include_me=True):
@@ -213,14 +208,50 @@ class Randolph(Prince):
     type_ = RANDOLPH
     cardback = LOVECRAFT
 
-# TODO: Capitalist.
+class Capitalist(Prince):
+    name = "Capitalist"
+    type_ = CAPITALIST
+    insane = 1
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        if po.mode == INSANE:
+            # Draw, but no discard. Player will end up with a second card forever
+            trigger_draw(self.game, self.controller, po)
+        else:
+            super().on_play(play_event)
+    def insane_play_options(self):
+        # Currently this doesn't target, only gives second card to controller
+        return [(self.option(targets=(), mode=INSANE,
+                             str_fmt="Getting an extra card."), 0)]
+
+class MiGo(Randolph):
+    name = "MiGo"
+    type_ = MIGO
+    insane = 1
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        if po.mode == INSANE:
+            # TODO: confirm that the right Info is shown for this card
+            for target in po.targets:
+                cards_to_take = [card for card in target.hand]
+                for card in cards_to_take:
+                    target.take(card)
+                target.give(BrainCase())
+                self.game.make_play(self.controller)
+        else:
+            super().on_play(play_event)
+    def insane_play_options(self):
+        # Can't target self with this
+        return [(self.option(targets=(player,),
+                             str_fmt="Putting {po:target}'s brain in a jar."),0)
+                 for player in self.valid_targets()]
 
 class Princess(Card):
     name = "Princess"
     type_ = PRINCESS
     value = 8
     def trigger_play_events(self, play_option):
-        # Actually have to override the SHUFFLE mode.
+        # Actually have to override this for SHUFFLE mode, since the card doesn't get played/discarded.
         if play_option.mode == SHUFFLE:
             # Don't set the play option for this card, or turn_played. Don't discard or play.
             trigger_shuffle(self.game, self, play_option)
@@ -234,8 +265,6 @@ class Princess(Card):
                       source=discard_event.context.source, card=self)
     def sane_play_options(self):
         # Princess can't be nope'd
-        # TODO: if multiple 8's in hand, shuffle in. Rule phrasing is "if every card in hand is an 8, you may shuffle one in".
-        # This will require overriding trigger_play_events, to prevent the discard.
         ret = [(self.option(can_nope=False, str_fmt="To die."), 0)]
         if all([card.value == 8 for card in self.holder.hand]):
             ret.append((self.option(mode=SHUFFLE, can_nope=False,
@@ -252,8 +281,26 @@ class BrainCase(Princess):
     type_ = BRAIN_CASE
     cardback = LOVECRAFT
     value = 0
+    insane = 1
 
-# TODO: Cthulu.
+class Cthulu(Necronomicon):
+    name = "Cthulu"
+    type_ = CTHULU
+    insane = 1
+    # Allow Princess's override for shuffle mode, use on_play for insane mode
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        if po.mode == INSANE:
+            # If already twice insane, ignoring this card if it's in the discard
+            if self.controller.how_insane() - (self.insane if self in self.controller.discard else 0) >= 2:
+                self.game.win_game(self.controller, self)
+    def on_discard(self, discard_event):
+        # Don't die if played insane, otherwise do
+        if isinstance(discard_event.context.source, PlayOption) and \
+           discard_event.context.source.mode != INSANE:
+            trigger_death(self.game, discard_event.context.player,
+                          source=discard_event.context.source, card=self)
+
 
 ##ASSASSIN
 ##JESTSASSIN

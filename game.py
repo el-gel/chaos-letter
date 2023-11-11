@@ -8,8 +8,15 @@ from queries import *
 from info import *
 from context import *
 from utils import *
+from query_utils import *
+from event_utils import *
 from cards import *
 from cl_constants import *
+
+DEFAULT_CONFIG = {
+    HEARTS_TO_WIN: 2,
+    INSANE_HEARTS_TO_WIN: 3,
+    }
 
 
 class PublicGameInfo:
@@ -20,7 +27,9 @@ class PublicGameInfo:
 
 class Game:
     """Handles running a game, firing Events around etc."""
-    def __init__(self):
+    def __init__(self, config=None):
+        self._settings = {}
+        self.update_config(config)
         self.info_queue = []
         self.event_queue = []
         self.events_paused = False
@@ -44,20 +53,32 @@ class Game:
 
     # Setup and configuration.
         
-    def setup(self, deck, players, pull_aside=None):
+    def setup(self, deck, players, pull_aside=None, config=None):
         if len(players) > 2*len(deck):
             # 2x to handle priming, may need to have better checking
             raise ValueError("Too many players")
+        # Do configuration stuff
+        self.update_config(config)
         # Set up an 'original' deck, which is then used by reset_deck
         self.all_cards = list(deck)
         for card in self.all_cards:
             card.put_in_game(self)
-        # TODO: make a pull_aside thst pulls cards out of the deck until one of each cardback
+        # TODO: make a pull_aside that pulls cards out of the deck until one of each cardback
         if pull_aside:
             self.pull_aside = pull_aside
         # Only add players when everything is ready; they may try to check things early
         for player in players:
             self.add_player(player)
+
+    def update_config(self, config):
+        config = config if config else {}
+        self._settings.update(config)
+        for key, value in DEFAULT_CONFIG.items():
+            if key not in self._settings:
+                self._settings[key] = value
+
+    def setting(self, name, default=None):
+        return self._settings[name] if name in self._settings else default
 
     # Player handling.
             
@@ -212,7 +233,7 @@ If none of them left either, then I guess give them a braincase?"""
             self.give_heart(player, source)
         self.round_winner = player
 
-    def win_game(self, source, player):
+    def win_game(self, player, source):
         # End the round, but also set an overall winner
         self.end_round(source)
         self.winner = player
@@ -248,9 +269,21 @@ If none of them left either, then I guess give them a braincase?"""
         # TODO: Consider multiple winners. E.g. bishop, jester etc. Cthulu should override them all too.
         while self.run_round():
             # Do win calculations; for now, play one round then get the most tokens
-            self.winner = max(self.players, key=lambda p:p.hearts+p.insane_hearts)
-            break
-        print("Winner is: " + str(self.winner))
+            if self.winner:
+                # Someone won due to Cthulu
+                break
+            # TODO: currently takes first player that's won
+            # Consider multiple winners; go to a tie break, with another game if all tied?
+            for player in self.players:
+                if player.hearts >= self.setting(HEARTS_TO_WIN):
+                    self.win_game(player, WON_HEARTS)
+                    break
+                if player.insane_hearts >= self.setting(INSANE_HEARTS_TO_WIN):
+                    self.win_game(player, WON_INSANE_HEARTS)
+                    break
+            if self.winner:
+                break
+        log.info("Winner is: " + str(self.winner))
     
     def play_turn(self, player):
         """Play a turn for a player."""
@@ -259,7 +292,7 @@ If none of them left either, then I guess give them a braincase?"""
         # After each step, check if the round's ended (returned False)
         # Could be fancy and do all() with lazy evaluation
         # Don't do anything if they're dead
-        if not player.alive:
+        if not player.alive or not self.active:
             return self.active
         if not self.start_turn(player):
             return self.active
@@ -367,6 +400,7 @@ If none of them left either, then I guess give them a braincase?"""
                 self.active = False
                 if winner:
                     self.make_round_winner(winner, end_source)
+                # TODO: Cancel everything on the event queue too
             Event(RoundEndContext(self.living_players(), end_source),
                   resolve_effect=do_end).queue(self)
 

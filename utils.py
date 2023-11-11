@@ -31,6 +31,8 @@ def insane_like(card_type):
 def liststr(obj):
     return str([str(item) for item in obj])
 
+def dictstr(obj):
+    return str({key:str(val) for key,val in obj.items()})
 
 
 def living(players):

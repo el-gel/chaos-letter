@@ -315,3 +315,4 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Maybe linting and typing. If I can be bothered facing that. Nb, this will not be consistently enforced after adding, so I'd rather do this later in one big go, when it's time for others to be implementing bots etc. and there's not going to be much development going on.
 - Cancelled events should give info if cancelled still.
 - Consistency in what source refers to. Need it to be useful to player bots; ideally, would point to the exact event, but we don't share events, so maybe just the event context.
+- PlayOption mode is a better form of enum, want to say e.g. if po.mode.INSANE

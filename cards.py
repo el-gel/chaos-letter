@@ -2,10 +2,10 @@ import logging
 log = logging.getLogger(__name__)
 
 from events import *
+from event_utils import *
 from cl_constants import *
 from access_control import *
 from utils import *
-from queries import *
 from info import *
 from players import *
 
@@ -141,6 +141,15 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden for insane cards."""
         return []
 
+    def sane_ops_as_insane(self, str_fmt=""):
+        """Returns the sane play options, but all with INSANE mode and optionally changed str_fmt."""
+        to_insane = self.sane_play_options()
+        for sop, force in to_insane:
+            sop.mode = INSANE
+            if str_fmt:
+                sop.str_fmt = str_fmt
+        return to_insane
+
     def reverse_play_options(self, play_option, reverser):
         """Returns a list of PlayOptions that are valid reverses for it. Empty list if not reversible."""
         return []
@@ -175,7 +184,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         self.played_events = self.play_events(play_option)
         self.game.queue_events(self.played_events,clear=False)
         # Before the play events fire, do a discard
-        trigger_discard(self.game, self.holder, PLAYED, self)
+        trigger_discard(self.game, self.holder, play_option, self)
         # Now start the queue again
         self.game.resume_events()
 
@@ -189,7 +198,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         self.game.queue_events(self.played_events, clear=False)
         # Before the play happens, do a discard then a draw
         trigger_draw(self.game, self.holder, QUICK_PLAY)
-        trigger_discard(self.game, self.holder, PLAYED, self)
+        trigger_discard(self.game, self.holder, play_option, self)
         # Now send off
         self.game.resume_events()
         
@@ -301,7 +310,7 @@ class PublicPlayOption(PublicData):
         ret = str(self.card)
         ret += " played as " + str(self.mode)
         ret += " targeting " + liststr(self.targets)
-        ret += " with " + str(self.parameters) if self.parameters else ""
+        ret += " with " + dictstr(self.parameters) if self.parameters else ""
         return ret
             
 
@@ -310,7 +319,7 @@ class PrivatePlayOption(PrivateData):
         ret = str(self.card)
         ret += " played as " + str(self.mode)
         ret += " targeting " + liststr(self.targets)
-        ret += " with " + str(self.parameters) if self.parameters else ""
+        ret += " with " + dictstr(self.parameters) if self.parameters else ""
         return ret
 
 
@@ -343,11 +352,3 @@ class PlayOption(PublicUser, PrivateUser):
             return self.targets[0]
         return None
 
-    def __eq__(self, other):
-        # In case someone creates their own PlayOption, rather than picking from the options
-        # TODO: Move elsewhere. Player actions never see this.
-        return all([
-            self.card == other.card,
-            self.mode == other.mode,
-            self.targets == other.targets,
-            self.parameters == other.parameters])
