@@ -16,6 +16,7 @@ from cl_constants import *
 DEFAULT_CONFIG = {
     HEARTS_TO_WIN: 2,
     INSANE_HEARTS_TO_WIN: 3,
+    DECK_STACKING: (),
     }
 
 
@@ -50,10 +51,12 @@ class Game:
         self.last_loser = None # This is explicitly not cleared between rounds; if a round ends with no death, take the loser of the prior round
         self.round_winner = None
         self.winner = None
+        self.round_count = 0
 
     # Setup and configuration.
         
     def setup(self, deck, players, pull_aside=None, config=None):
+        """Setup the Game configuration before starting to run anything."""
         if len(players) > 2*len(deck):
             # 2x to handle priming, may need to have better checking
             raise ValueError("Too many players")
@@ -71,6 +74,7 @@ class Game:
             self.add_player(player)
 
     def update_config(self, config):
+        """Update the config dict with config, also setting any defaults."""
         config = config if config else {}
         self._settings.update(config)
         for key, value in DEFAULT_CONFIG.items():
@@ -83,20 +87,19 @@ class Game:
     # Player handling.
             
     def add_player(self, player, order_i=None, draw=False):
-        # Add player to player list, optionally draw them a card, and fire all past info history into them
-        # No cards are expected to run this, so this is running the Event rather than being run from one
+        """Add a player to the game, optionally draw them a card, and fire all past info history into them."""
+        # This does this via an Event to make sure the Info is sent
         if order_i is None:
             order_i = len(self.players)
-        # Really, nothing should be able to interrupt this, but in case
         def do_add(ev):
             self.players.append(player)
             self.player_order.insert(order_i, player)
         self.show_history_to_player(player)
+        # When priming, this is called on the primed Player
         Event(JoinContext(player, PRIME if player.prime_count else NEW),
               resolve_effect=do_add).queue(self)
         if draw:
             trigger_draw(self, player, JOINED)
-        self.clear_event_queue()
     
     def kill_player(self, player):
         """Kill a player in a round, and prime them if needed."""
@@ -115,14 +118,14 @@ class Game:
             self.prime_player(player)
     
     def prime_player(self, player):
-        # Add a prime player to the game (use prime() from players.py)
+        """Add a prime player to the game, using prime() from players.py."""
         # Add them just after the player they primed from
         prime_player = prime(player)
         self.add_player(prime_player, self.players.index(player), draw=True)
 
     def de_prime_players(self):
-        # Remove all primed players - each Player keeps a reference for reuse later
-        # Run just before the start of each round
+        """Remove all primed players from the game. Run before start of round."""
+        # Each Player keeps a reference for reuse later, so don't need to save anything
         primed = [p for p in self.players if p.prime_count]
         oprimed = [p for p in self.player_order if p.prime_count]
         for p in primed:
@@ -135,7 +138,7 @@ class Game:
         # TODO: a way to request to leave at the end of the current round. Be sure to remove un-primed version
         if self.active:
             # Maybe replace player with a random actor?
-            raise Exception("Can't leave the game when a round is running.")
+            raise Exception("Can't leave the game while a round is running.")
         def do_drop(ev):
             self.players.remove(player)
             self.player_order.remove(player)
@@ -157,29 +160,30 @@ class Game:
 
     def reset_player(self, player):
         """Reset a specific Player."""
-        # Let the Player class handle reset. Allows extending.
         player.reset()
 
     def show_history_to_player(self, player, all_=False):
-        # Show the Info history to the player
-        # Only show round history, unless given all_
+        """Show the round's Info history to a Player, or the entire game history if all_."""
         for info in (self.all_info_history if all_ else self.round_info_history):
             info.send_to(player)
 
     def living_players(self):
-        """Get a list of living players. No order guarantee."""
+        """Get a list of living Players. No order guarantee."""
         return [player for player in self.players if player.alive]
 
     def targetable_players(self, not_including=None):
+        """List of living and unprotected Players. Optionally provide a Player or Players to ignore."""
         ni = not_including if isinstance(not_including, (list, tuple)) else (not_including,)
         return [player for player in self.living_players() if not player.protected and player not in ni]
 
     # Deck handling.
 
     def shuffle(self):
+        """Shuffle the deck in place."""
         random.shuffle(self.deck)
 
     def shuffle_in(self, card):
+        """Shuffle a card into the deck."""
         self.deck.append(card)
         self.shuffle()
         for card in self.deck:
@@ -201,6 +205,7 @@ If none of them left either, then I guess give them a braincase?"""
         raise EmptyDeckException()
 
     def reset_deck(self):
+        """Return the deck and all cards within it to a default state."""
         for card in self.all_cards:
             # I haven't cleared state from cards yet, like I want to
             # So have to actually touch the cards here
@@ -208,6 +213,25 @@ If none of them left either, then I guess give them a braincase?"""
         self.deck = list(self.all_cards)
         self.shuffle()
         self.aside = self.pull_aside(self.deck)
+
+    def stack_deck(self, order):
+        """Stack the top of the deck to match order as a list of type_'s. Used for tests."""
+        log.info("Stacking the deck with " + liststr(order))
+        # Deck actually gets popped from the end, so reversing order
+        top = []
+        for type_ in order[-1::-1]:
+            for test in self.deck:
+                if test in top:
+                    continue
+                if test.is_(type_):
+                    top.append(test)
+                    break
+            else:
+                log.warning("Deck stacking could not find enough " + type_ + "s.")
+        for found in top:
+            self.deck.remove(found)
+        # Top of deck is last element
+        self.deck = self.deck + top
 
     # Scoring.
 
@@ -226,6 +250,7 @@ If none of them left either, then I guess give them a braincase?"""
         self.clear_event_queue()
 
     def make_round_winner(self, player, source):
+        """Set a round winner and reward with a scoring token."""
         # Give heart or insane token depending on status
         if player.how_insane():
             self.give_insane_win(player, source)
@@ -234,7 +259,7 @@ If none of them left either, then I guess give them a braincase?"""
         self.round_winner = player
 
     def win_game(self, player, source):
-        # End the round, but also set an overall winner
+        # End the round as well
         self.end_round(source)
         self.winner = player
 
@@ -265,7 +290,7 @@ If none of them left either, then I guess give them a braincase?"""
         self.check_round_end_win()
     
     def run_game(self):
-        # Keep running games until we have a winner
+        """Keep running games until we have a winner."""
         # TODO: Consider multiple winners. E.g. bishop, jester etc. Cthulu should override them all too.
         while self.run_round():
             # Do win calculations; for now, play one round then get the most tokens
@@ -286,7 +311,7 @@ If none of them left either, then I guess give them a braincase?"""
         log.info("Winner is: " + str(self.winner))
     
     def play_turn(self, player):
-        """Play a turn for a player."""
+        """Play a turn for a player. Returns False if the round is over."""
         # Substeps return False if the round ends or the player is now dead
         # This returns False if the round has ended
         # After each step, check if the round's ended (returned False)
@@ -309,6 +334,7 @@ If none of them left either, then I guess give them a braincase?"""
     # Dealing with starting and ending a round; note, may be halfway through something else.
 
     def start_round(self):
+        """Set up ready for a round to run, then mark the Game as running."""
         # Clear out the round info history
         self.clear_round_info()
         # Reset players and game state before telling them the round has started (so all state is clean at the RoundStart event)
@@ -317,6 +343,9 @@ If none of them left either, then I guess give them a braincase?"""
         self.round_winner = None
         self.reset_players()
         self.reset_deck()
+        if len(self.setting(DECK_STACKING)) > self.round_count:
+            self.stack_deck(self.setting(DECK_STACKING)[self.round_count])
+        self.round_count += 1
         self.inform_start()
         # Ask who should play first - will inform players
         self.ask_for_first_player()
@@ -346,6 +375,7 @@ If none of them left either, then I guess give them a braincase?"""
             ask_who_starts(self, self.last_loser)
 
     def check_one_left(self):
+        """Check if only one Player is alive. Return True otherwise (so the round continues)."""
         left = None
         for player in self.players:
             if player.alive:

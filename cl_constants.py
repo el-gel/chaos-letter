@@ -58,7 +58,7 @@ LOVECRAFT = "LOVECRAFT"
 BLANK = "BLANK"
 
 # Game settings
-GAME_SETTINGS = ("HEARTS_TO_WIN", "INSANE_HEARTS_TO_WIN")
+GAME_SETTINGS = ("HEARTS_TO_WIN", "INSANE_HEARTS_TO_WIN", "DECK_STACKING")
 for setting in GAME_SETTINGS:
     globals()[setting] = setting
 

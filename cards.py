@@ -299,6 +299,8 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         return sane_like(self, other)
     def insane_like(self, other):
         return insane_like(self, other)
+    def is_(self, type_):
+        return self.type_ == type_
     def __str__(self):
         return self.name
 

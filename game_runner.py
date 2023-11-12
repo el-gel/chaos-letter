@@ -11,7 +11,7 @@ from players import *
 from sample_actions import *
 
 deckdict = {Handmaid: 1,
-            LiberIvonis: 10,
+            LiberIvonis: 6,
             Guard: 10,
             DeepOnes: 1,
             Priest: 10,
@@ -21,6 +21,12 @@ deckdict = {Handmaid: 1,
             Capitalist: 10,
             MiGo: 5,
             Cthulu: 2}
+
+stacks = (
+    (LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, # Force immortality
+     GUARD, LIBER_IVONIS, GUARD,LIBER_IVONIS),
+    )
+
 deck = []
 for cardclass, num in deckdict.items():
     deck += [cardclass() for i in range(num)]
@@ -33,7 +39,8 @@ p2 = Player(g, action_class=LoggingActions, name="Brian")
 #p2.actions.debug = True
 #p2.actions.other = public(p1, p2)
 p2.actions.logging = False
-g.setup(deck, [p1,p2], config={HEARTS_TO_WIN: 10, INSANE_HEARTS_TO_WIN: 10})
+g.setup(deck, [p1,p2], config={HEARTS_TO_WIN: 1, INSANE_HEARTS_TO_WIN: 1,
+                               DECK_STACKING: stacks})
 g.run_game()
 
 
