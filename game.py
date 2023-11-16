@@ -288,6 +288,10 @@ If none of them left either, then I guess give them a braincase?"""
         
         # Deck out scenario; work out if anyone won, will fire an event if they did
         self.check_round_end_win()
+
+        # Return False if we want premature ending
+        # Currently redundant with run_game logic, but could be used for e.g. end of lunch
+        return True
     
     def run_game(self):
         """Keep running games until we have a winner."""

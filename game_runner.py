@@ -11,7 +11,7 @@ from players import *
 from sample_actions import *
 
 deckdict = {Handmaid: 1,
-            LiberIvonis: 6,
+            LiberIvonis: 8,
             Guard: 10,
             DeepOnes: 1,
             Priest: 10,
@@ -20,7 +20,7 @@ deckdict = {Handmaid: 1,
             Princess: 5,
             Capitalist: 10,
             MiGo: 5,
-            Cthulu: 2}
+            Cthulhu: 10}
 
 stacks = (
     (LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, # Force immortality

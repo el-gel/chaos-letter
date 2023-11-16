@@ -45,7 +45,7 @@ CARD_TYPES = ("ASSASSIN", "JESTSASSIN", "GUARD", "PRIEST", "CARDINAL",
               "BRAIN_CASE", "INVESTIGATOR", "DEEP_ONES", "CATS", "NOPE",
               "GOLDEN_MEAD", "YITH", "HOUNDS", "ELDER_SIGN", "LIBER_IVONIS",
               "ARMITAGE", "MIGO", "RANDOLPH", "NYARLATHOTEP", "SILVER_KEY",
-              "TRAPEZOID", "NECRONOMICON", "CTHULU")
+              "TRAPEZOID", "NECRONOMICON", "CTHULHU")
 for type_ in CARD_TYPES:
     globals()[type_] = type_
 

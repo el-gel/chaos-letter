@@ -15,6 +15,7 @@ class Handmaid(Card):
     name = "Handmaid"
     type_ = HANDMAID
     value = 4
+    play_str_fmts = ("{c} played for protection.",)
     def on_play(self, play_event):
         self.holder.protected = True
     def see_turn_start_event(self, ev):
@@ -35,6 +36,7 @@ class LiberIvonis(ElderSign):
     name = "Liber Ivonis"
     type_ = LIBER_IVONIS
     insane = 1
+    ins_play_str_fmts = ("{c} played for IMMORTALITY.",)
     def on_play(self, play_event):
         po = play_event.context.play_option
         if po.mode == INSANE:
@@ -54,13 +56,15 @@ class LiberIvonis(ElderSign):
                                    death_event=death_event, death_ctx=ctx),
                 resolve_effect=cancel_death)
     def insane_play_options(self):
-        return self.sane_ops_as_insane(str_fmt="To go immortal.")
+        return self.sane_ops_as_insane()
 
 
 class Guard(Card):
     name = "Guard"
     type_ = GUARD
     value = 1
+    play_str_fmts = ("{c} targeting nobody.",
+                     "Does {po:target} have a {po:number}?")
     def on_play(self, play_event):
         po = play_event.context.play_option
         # May not have been able to target anyone. Maybe we get multiple targets later.
@@ -76,11 +80,10 @@ class Guard(Card):
         ret = []
         for player in self.valid_targets():
             for i in GUARD_CHOICES:
-                ret.append(self.option(targets=(player,), parameters={"number":i},
-                                    str_fmt="Does {po:target} have a {po:number}?"))
+                ret.append(self.option(targets=(player,), parameters={"number":i}))
         if not ret:
             # No targets; so just target no-one and be sad
-            ret.append(self.option(targets=(), str_fmt=self.name + " targeting nobody"))
+            ret.append(self.option(targets=()))
         return [(rr,0) for rr in ret]
 
 class Investigator(Guard):
@@ -92,6 +95,10 @@ class DeepOnes(Investigator):
     name = "Deep Ones"
     type_ = DEEP_ONES
     insane = 1
+    play_str_fmts = ("{c} targeting nobody.",
+                     "Does {po:target} have a {po:number}?")
+    ins_play_str_fmts = ("{c} (insanely) targeting nobody.",
+                         "Does {po:target} have a 1? Or a {po:number}?")
     def on_play(self, play_event):
         po = play_event.context.play_option
         for target in living(po.targets):
@@ -112,13 +119,16 @@ class DeepOnes(Investigator):
                     trigger_death(self.game, target, source=po, card=self)
     def insane_play_options(self):
         # Same as sane options, but with mode INSANE. Doesn't do the right str_fmt when untargeted though.
-        return self.sane_ops_as_insane(str_fmt="Does {po:target} have a 1 or a {po:number}?")
+        return self.sane_ops_as_insane()
 
 
 class Priest(Card):
     name = "Priest"
     type_ = PRIEST
     value = 2
+    play_str_fmts = ("{c} looking at noone.",
+                     "Looking at {po:target}'s hand.",
+                     "Looking at {po:targets} hands.")
     def on_play(self, play_event):
         po = play_event.context.play_option
         for target in living(po.targets):
@@ -126,21 +136,18 @@ class Priest(Card):
     def sane_play_options(self):
         ret = []
         for player in self.valid_targets():
-            ret.append(self.option(targets=(player,),
-                                   str_fmt="Looking at {po:target}'s hand"))
+            ret.append(self.option(targets=(player,)))
         if not ret:
-            return [(self.option(targets=(), str_fmt="Looking at nothing."), 0)]
+            return [(self.option(targets=()), 0)]
         return [(rr,0) for rr in ret]
 
 class CatsOfUlthar(Priest):
     name = "Cats of Ulthar"
     type_ = CATS
     cardback = LOVECRAFT
-    def sane_play_options(self):
-        ret = super().sane_play_options()
-        for op, force in ret:
-            op.str_fmt = "Meow."
-        return ret
+    play_str_fmts = ("Meow (at no-one).",
+                     "Meow.",
+                     "Meow?")
 
 class Baroness(Priest):
     name = "Baroness"
@@ -149,15 +156,13 @@ class Baroness(Priest):
     def sane_play_options(self):
         ret = []
         for player1 in self.valid_targets():
-            ret.append(self.option(targets=(player1,),
-                                   str_fmt="Looking at {po:target} only."))
+            ret.append(self.option(targets=(player1,)))
             for player2 in self.valid_targets():
                 if player2 == player1:
                     continue
-                ret.append(self.option(targets=(player1,player2),
-                                       str_fmt="Looking at {po:targets}."))
+                ret.append(self.option(targets=(player1,player2)))
         if not ret:
-            return [(self.option(targets=(), str_fmt="Looking at nothing."), 0)]
+            return [(self.option(targets=()), 0)]
         return [(rr,0) for rr in ret]
 
 
@@ -188,6 +193,9 @@ class Prince(Card):
     name = "Prince"
     type_ = PRINCE
     value = 5
+    play_str_fmts = ("How did you {c} no-one?",
+                     "Making {po:target} discard.",
+                     "Making {po:targets} discard.")
     def on_play(self, play_event):
         po = play_event.context.play_option
         # Should always have a target for a Prince
@@ -212,6 +220,7 @@ class Capitalist(Prince):
     name = "Capitalist"
     type_ = CAPITALIST
     insane = 1
+    ins_play_str_fmts = ("Getting an extra card for keeps.",)
     def on_play(self, play_event):
         po = play_event.context.play_option
         if po.mode == INSANE:
@@ -221,13 +230,15 @@ class Capitalist(Prince):
             super().on_play(play_event)
     def insane_play_options(self):
         # Currently this doesn't target, only gives second card to controller
-        return [(self.option(targets=(), mode=INSANE,
-                             str_fmt="Getting an extra card."), 0)]
+        return [(self.option(targets=(), mode=INSANE), 0)]
 
 class MiGo(Randolph):
     name = "MiGo"
     type_ = MIGO
     insane = 1
+    ins_play_str_fmts = ("Not putting anyone's head in a jar.",
+                         "Putting {po:target}'s head in a jar.",
+                         "Putting {po:targets} heads in jars.")
     def on_play(self, play_event):
         po = play_event.context.play_option
         if po.mode == INSANE:
@@ -236,20 +247,23 @@ class MiGo(Randolph):
                 cards_to_take = [card for card in target.hand]
                 for card in cards_to_take:
                     target.take(card)
-                target.give(BrainCase())
+                target.give(BrainCase(self.game))
                 self.game.make_play(self.controller)
         else:
             super().on_play(play_event)
     def insane_play_options(self):
-        # Can't target self with this
-        return [(self.option(targets=(player,),
-                             str_fmt="Putting {po:target}'s brain in a jar."),0)
+        # Can't target self with this - but can target no-one
+        ret = [(self.option(mode=INSANE, targets=(player,)),0)
                  for player in self.valid_targets()]
+        if not ret:
+            ret.append((self.option(mode=INSANE, targets=()), 0))
+        return ret
 
 class Princess(Card):
     name = "Princess"
     type_ = PRINCESS
     value = 8
+    play_str_fmts = ("Committing die with {c}.",)
     def trigger_play_events(self, play_option):
         # Actually have to override this for SHUFFLE mode, since the card doesn't get played/discarded.
         if play_option.mode == SHUFFLE:
@@ -264,8 +278,8 @@ class Princess(Card):
         trigger_death(self.game, discard_event.context.player,
                       source=discard_event.context.source, card=self)
     def sane_play_options(self):
-        # Princess can't be nope'd
-        ret = [(self.option(can_nope=False, str_fmt="To die."), 0)]
+        # Princess can't be nope'd - not that it would have stopped the death
+        ret = [(self.option(can_nope=False), 0)]
         if all([card.value == 8 for card in self.holder.hand]):
             ret.append((self.option(mode=SHUFFLE, can_nope=False,
                                     str_fmt="Shuffling unsuspiciously."), 0))
@@ -283,23 +297,45 @@ class BrainCase(Princess):
     value = 0
     insane = 1
 
-class Cthulu(Necronomicon):
-    name = "Cthulu"
-    type_ = CTHULU
+class Cthulhu(Necronomicon):
+    name = "Cthulhu"
+    type_ = CTHULHU
     insane = 1
-    # Allow Princess's override for shuffle mode, use on_play for insane mode
+    ins_play_str_fmts = ("CTHULHU FHTAGN",)
+    def cthulhu_active(self):
+        # Check insaneness is >= 2, ignoring this card if in the discard pile
+        # If we change our mind on primeness counting for Cthulu, this is where to change it
+        return (self.controller.how_insane() - (self.insane if self in self.controller.discard else 0)) >= 2
+    # Cthulu says "if discarded on your turn (not for insanity check), win if twice insane already, else lose"
+    # However, it can still be noped.
+    # To do this, the insane play effect is "win the game",
+    #   the discard effect is "die if not discarded on their turn or not insane enough
+    #                          die if discarded on turn due to insanity check
+    #                          win if discarded on turn, but not played
+    #                          nothing if discarded on turn due to play (the play effect will do the win)"
+    # This does mean that you can un-nopeably win by princeing self, rather than playing cthulu.
+    # If people disagree, then the way to fix is to make the discard event create a 'cthulu wins' event
+    #   and then the Nope looks for this as well. There is then no play effect, only the discard.
     def on_play(self, play_event):
         po = play_event.context.play_option
         if po.mode == INSANE:
-            # If already twice insane, ignoring this card if it's in the discard
-            if self.controller.how_insane() - (self.insane if self in self.controller.discard else 0) >= 2:
+            if self.cthulhu_active():
                 self.game.win_game(self.controller, self)
     def on_discard(self, discard_event):
-        # Don't die if played insane, otherwise do
-        if isinstance(discard_event.context.source, PlayOption) and \
-           discard_event.context.source.mode != INSANE:
-            trigger_death(self.game, discard_event.context.player,
-                          source=discard_event.context.source, card=self)
+        # Die if discarded on not your turn, or not insane enough, or it's an insanity check
+        reason = discard_event.context.source
+        player = discard_event.context.player
+        if reason == INSANITY_CHECK or self.game.current_player != player or \
+           not self.cthulhu_active():
+            trigger_death(self.game, player,source=reason, card=self)
+        elif self.played_as is None: # This card wasn't played
+            self.game.win_game(self.controller, self)
+        # This card was played for the discard, and it's active. on_play will win for us
+    def insane_play_options(self):
+        if self.cthulhu_active():
+            return [(self.option(mode=INSANE), 0)]
+        else:
+            return []
 
 
 ##ASSASSIN

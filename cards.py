@@ -81,12 +81,20 @@ class Card(PublicUser, PrivateUser):
     insane = 0 # Allow for this being > 1. E.g. "this card counts as triply insane"
     cardback = DEFAULT
     cardfront = BLANK
+    # Formatting for play options, indexed by number of targets
+    # .option() uses this if not given str_fmt, and will use the number of targets to choose which
+    # If more targets than length, then will use the last in the list
+    # Blank list for don't change from the default behaviour
+    play_str_fmts = ()#("Defaulting on no-one.", "Defaulting on single {po:target}.",
+                     #"Defaulting on two {po:targets}.", "Defaulting on more than three {po:targets}.")
+    # Same, but for insane plays. Also used by sane_ops_as_insane
+    ins_play_str_fmts = ()#("Insanely defaulting on no-one.", "Insanely defaulting on one or more {po:targets}.")
     
-    def __init__(self, cardback=None, cardfront=None):
+    def __init__(self, cardback=None, cardfront=None, game=None):
         # The only potential distinguishing features between different cards is the back and front images
         self.cardback = self.__class__.cardback if cardback is None else cardback
         self.cardfront = self.__class__.cardfront if cardfront is None else cardfront
-        self.game = None
+        self.game = game
         self.uid = Card.next_uid
         Card.next_uid += 1
         self.reset()
@@ -130,24 +138,26 @@ The holder's Player info is also invalidated, which will trigger recreating rele
     # Creating targeting options.
     
     def play_options(self):
-        """Returns a list of (PlayOption, forcing_level) tuples - the PlayOption does not care about being forced."""
+        """Returns a list of (PlayOption, forcing_level) tuples."""
         return (self.insane_play_options() if self.holder.how_insane() else []) + self.sane_play_options()
     
     def sane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden."""
-        return [(self.option(self), 0)]
+        return [(self.option(), 0)]
     
     def insane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden for insane cards."""
         return []
 
-    def sane_ops_as_insane(self, str_fmt=""):
+    def sane_ops_as_insane(self, str_fmt=None):
         """Returns the sane play options, but all with INSANE mode and optionally changed str_fmt."""
         to_insane = self.sane_play_options()
         for sop, force in to_insane:
             sop.mode = INSANE
             if str_fmt:
                 sop.str_fmt = str_fmt
+            elif new_ins_str := self.str_fmt_for_targets(INSANE, sop.targets):
+                sop.str_fmt = new_ins_str
         return to_insane
 
     def reverse_play_options(self, play_option, reverser):
@@ -163,9 +173,19 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         po = PlayOption(self, mode=mode, targets=targets,
                         parameters=parameters, quick=quick,
                         can_nope=can_nope)
-        if str_fmt:
+        if str_fmt or (str_fmt := self.str_fmt_for_targets(mode, targets)):
             po.str_fmt = str_fmt
         return po
+
+    def str_fmt_for_targets(self, mode, targets):
+        """The most appropriate str_fmt, from play_str_fmts or ins_play_str_fmts."""
+        if mode == INSANE and self.ins_play_str_fmts:
+            str_i = min(len(self.ins_play_str_fmts)-1, len(targets))
+            return self.ins_play_str_fmts[str_i]
+        elif self.play_str_fmts:
+            str_i = min(len(self.play_str_fmts)-1, len(targets))
+            return self.play_str_fmts[str_i]
+        return ""
 
     # TODO: option_for_each, which would take a list of modes, targets, parameters etc and return the right list of tuples
     # Need to decide how this is most useful; for each valid target? Provided list of target tuples? Provided list of targets and number in each option tuple?
