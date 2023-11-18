@@ -167,6 +167,8 @@ class Game:
         for info in (self.all_info_history if all_ else self.round_info_history):
             info.send_to(player)
 
+    # Info about players, including iterables.
+
     def living_players(self):
         """Get a list of living Players. No order guarantee."""
         return [player for player in self.players if player.alive]
@@ -175,6 +177,60 @@ class Game:
         """List of living and unprotected Players. Optionally provide a Player or Players to ignore."""
         ni = not_including if isinstance(not_including, (list, tuple)) else (not_including,)
         return [player for player in self.living_players() if not player.protected and player not in ni]
+
+    def play_order(self, players=None, start_after=None, start_with=None):
+        """List of players in play order. If players is not given, defaults to living players.
+
+start_after and start_with: only one can be used. Default is after current player."""
+        if players is None:
+            players = self.living_players()
+        if start_after:
+            if start_with:
+                raise ValueError("Can't set start_after and start_with at the same time.")
+            i = self.player_order.index(start_after) + self.turn_order
+        elif start_with:
+            i = self.player_order.index(start_with)
+        else:
+            i = self.player_order.index(self.current_player) + self.turn_order
+        ret = []
+        for j in range(len(self.player_order)):
+            next_player = self.player_order[(i+(j*self.turn_order))%len(self.player_order)]
+            if next_player in players:
+                ret.append(next_player)
+        return ret
+
+    def turns_til(self, player):
+        """How many turns til this player would get to play? Return -1 if they won't (e.g. dead)."""
+        i = 0
+        cur = self.player_order.index(self.current_player)
+        while i <= len(self.player_order):
+            if self.player_order[(cur+(i*self.turn_order))%len(self.player_order)] == player:
+                return i
+            i += 1
+        return -1
+
+    def priority_order(self, event, players=None):
+        """Get the priority order of living players (or a passed in list) responding to an event.
+
+This order is:
+1) Players targeted, in turn order (if event is a play event/targeting thing).
+2) All other players starting after targeter (if relevant - otherwise after current player)."""
+        if players is None:
+            players = self.living_players()
+        ret = []
+        if event.is_(CARD_PLAY):
+            # Find targets (ignoring current player), then put them in play order
+            targs = event.context.play_option.targets
+            ret.extend([player for player in targs if player != self.current_player
+                        and player in players])
+            ret.sort(key=self.turns_til)
+        # TODO: other event types may have different priority orderings
+        # Now add all players in play order
+        for player in self.play_order():
+            if player in ret or player not in players:
+                continue
+            ret.append(player)
+        return ret
 
     # Deck handling.
 
@@ -217,9 +273,8 @@ If none of them left either, then I guess give them a braincase?"""
     def stack_deck(self, order):
         """Stack the top of the deck to match order as a list of type_'s. Used for tests."""
         log.info("Stacking the deck with " + liststr(order))
-        # Deck actually gets popped from the end, so reversing order
         top = []
-        for type_ in order[-1::-1]:
+        for type_ in order:
             for test in self.deck:
                 if test in top:
                     continue
@@ -230,8 +285,8 @@ If none of them left either, then I guess give them a braincase?"""
                 log.warning("Deck stacking could not find enough " + type_ + "s.")
         for found in top:
             self.deck.remove(found)
-        # Top of deck is last element
-        self.deck = self.deck + top
+        # Top of deck is last element, so reverse
+        self.deck = self.deck + top[-1::-1]
 
     # Scoring.
 
@@ -481,20 +536,21 @@ If none of them left either, then I guess give them a braincase?"""
             
     def make_play(self, player):
         """Ask the player to choose a card to play, then trigger it."""
-        force_ops = [[] for i in range(3)]
+        force_ops = {UNFORCED:[], FORCED:[], ALL_FORCED:[]}
         for card in player.hand:
             for option, force in card.play_options():
                 force_ops[force].append(option)
-        if force_ops[2]:
+        log.debug("force_ops: " + str(force_ops))
+        if force_ops[ALL_FORCED]:
             # Must play each of these cards. Special Query for this
-            mult_query = multi_play_query(force_ops[2])
+            mult_query = multi_play_query(force_ops[ALL_FORCED])
             self.run_query(player, mult_query)
-        elif force_ops[1]:
+        elif force_ops[FORCED]:
             # Must play one of these cards
-            self.run_query(player, which_play_query(force_ops[1]))
+            self.run_query(player, which_play_query(force_ops[FORCED]))
         else:
             # Nothing's forcing
-            self.run_query(player, which_play_query(force_ops[0]))
+            self.run_query(player, which_play_query(force_ops[UNFORCED]))
         return self.active and player.alive
 
     def end_turn(self, player):
@@ -587,13 +643,15 @@ Equivalent to calling queue() on an Event object."""
             self.check_one_left()
 
     def fire_event(self, event):
-        # TODO: better ordering of priority.
+        """Fire a specific Event, showing it to all cards in play.
+
+Returns True if the Event got through uninterrupted."""
         self.firing_interrupted = False
         event.fire(self)
         if not self.active:
             # Can't respond if the game's not active
             return True
-        for player in self.players:
+        for player in self.priority_order(event):
             # Cards in the player's hand or discard are what can respond
             # Player itself doesn't see things, unless Querys come in
             # The cards have the business logic on them, in on_event

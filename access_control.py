@@ -200,7 +200,6 @@ class StaticPrivateUser(object):
 # Everything should use these functions to access public/private objects.
 def public(obj, for_):
     # Need to convert to uid for the dicts
-    log.debug("Public for: " + str(obj.__class__))
     uidfor_ = for_
     if getattr(for_, "type_", False) == PLAYER:
         uidfor_ = for_.uid

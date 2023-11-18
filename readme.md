@@ -316,3 +316,11 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Cancelled events should give info if cancelled still.
 - Consistency in what source refers to. Need it to be useful to player bots; ideally, would point to the exact event, but we don't share events, so maybe just the event context.
 - PlayOption mode is a better form of enum, want to say e.g. if po.mode.INSANE
+- No-U behaviour: No-U is played as a PlayOption with no-u as card, plus reversing and reversed_as paramters. Each card type needs a reversing function.
+- Rather than doing individual queries, when running events the cards seeing things can return a list of queries (or play events?) that then all get asked at once. Replaces ask_nope function, becomes an ask_quick_play function. Allows forcing and makes clearer which is happening; also allows multiple at once if valid. Does not apply to assassins, since they're forced and only happen when the thing happens.
+- Add a 'run before' to Events, where these Events happen before the attached Event, but only if the main Event happens.
+- Add a 'replaces' to Events, where these Events happen before the attached Event, and cancel the main Event.
+- Add a way to order the run_after, run_before and replaces Events (going by player order, with choices if a player has multiple they're responsible for).
+- Add a 'player order for event' function to game, which starts with the person being targeted (if relevant - else next after current player) then goes clockwise.
+- Add like_ and is_ to cards and play options; No-U needs to look at the reversed_as parameter.
+- Also add these to Public and Private classes, for PlayerActions.

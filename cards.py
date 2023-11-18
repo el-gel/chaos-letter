@@ -19,9 +19,9 @@ from players import *
 
 # Play options should be able to be forced
 # Forcing has three levels:
-# - 0 (not forced)
-# - 1 (forced, but if multiple 1's then have choice)
-# - 2 (forced, and must play all 2's)
+# - UNFORCED (not forced)
+# - FORCED (forced, but if multiple then have choice)
+# - ALL_FORCED (forced, and must play all at once)
 
 # Things that cause events:
 # - this card is played (standard)
@@ -143,7 +143,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
     
     def sane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden."""
-        return [(self.option(), 0)]
+        return [(self.option(), UNFORCED)]
     
     def insane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden for insane cards."""
