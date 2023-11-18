@@ -31,7 +31,12 @@ These are not shown to Players; only internal use."""
         self.fired = False
         self.tried_to_fire = False
         self.resolved = False
+        self.pre_events = [] # Events to happen before this, but only if it succeeds
+        # Example: Assassin kills, Liber Ivonis blocking death
         self.post_events = [] # Events to happen if this one succeeds
+        # Example: Potentially Cardinal looking at ability (distinct from swap)
+        self.linked_pre = None # For linked events - what Event ran before this
+        self.linked_post = None # For linked events - what Event will run after this
         self.uid = Event.next_uid
         Event.next_uid += 1
         
@@ -47,13 +52,17 @@ These are not shown to Players; only internal use."""
         #print(str(self.context))
         # Game object will handle getting players and Cards to respond.
     def interrupt(self):
+        """Something happened during attempted resolution."""
         self.fired = False
     def cancel(self, source):
-        # TODO: Consider adding a cause here
+        """Cancel an Event due to source."""
         self.cancelled = source
         if self.is_(CARD_PLAY):
             self.context.play_option.cancelled = source
-            
+
+    def first_run(self, other):
+        """A.first_run(B) means run B before A, if A succeeds. B is allowed to cancel A."""
+        self.pre_events.append(other)
     def then_run(self, other):
         """A.then_run(B) means run B after A, if A succeeds."""
         self.post_events.append(other)
@@ -63,12 +72,34 @@ These are not shown to Players; only internal use."""
         
     def resolve(self, game):
         """Run the actual effect of the event, if it wasn't prevented, and fire post events"""
-        self.resolved = True
         if self.cancelled:
+            self.resolved = True
             # TODO: Cancelled info?
             return
+        # TODO: ordering of pre / post events
+        # Try to find the associated player, and then go in that order
+        # If multiple events for a player, ask them the ordering
+        # Not sure when this will be relevant though
+
         # Events should not fire during resolution - but they may be put on the queue
-        game.pause_events()
+        was_paused = game.pause_events()
+        
+        # If there are any pre-events, then queue them all and return
+        # We leave this unresolved so that it fires again (if not cancelled)
+        # We clear pre_events so we don't keep firing them
+        # We also start the queue again to actually play those events
+        if self.pre_events:
+            # Need to re-queue; this event was removed before resolution
+            self.queue(game)
+            for event in self.pre_events:
+                event.linked_post = self
+                game.queue_event(event)
+            self.pre_events = []
+            if not was_paused: game.resume_events()
+            return # Don't continue; this event will fire again
+        
+        # No pre events; so now this is considered resolved
+        self.resolved = True
         if self.resolve_effect:
             # Allow Event callbacks to be of the following forms:
             # f()
@@ -80,22 +111,28 @@ These are not shown to Players; only internal use."""
                 self.resolve_effect(self)
             else:
                 self.resolve_effect()
+
+        # Resolution can mark this as cancelled, which means no post events / info
+        if self.cancelled:
+            if not was_paused: game.resume_events()
+            return
+        
+        # Just put all the post events on the stack.
+        # This interrupts this event, but it's been marked as resolved, so won't try again.
         for event in self.post_events:
-            game.queue_event(event.following(self))
+            event.linked_pre = self
+            game.queue_event(event)
+            
+        # TODO: cancelled / not cancelled info. Also check if cancelled here again
         for info in self.post_info():
             game.queue_info(info)
+            
         # TODO: should this resume before or after info?
-        game.resume_events()
-        
-    def following(self, previous_event):
-        """Used to track information across Events; e.g. Cardinal and which card a Capitalist picked"""
-        # Perform any required data extraction (e.g., self.context.card = previous_event.context.card)
-        # Then return self
-        return self
+        if not was_paused: game.resume_events()
     
     def pre_info(self):
         """Event has just fired."""
-        # Use self.tried_to_fire to tell if this is new or not
+        # TODO: Use self.tried_to_fire to tell if this is new or not
         # Make the context do this.
         return self.context.pre_info(self)
     def post_info(self):

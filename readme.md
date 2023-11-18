@@ -321,6 +321,5 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Add a 'run before' to Events, where these Events happen before the attached Event, but only if the main Event happens.
 - Add a 'replaces' to Events, where these Events happen before the attached Event, and cancel the main Event.
 - Add a way to order the run_after, run_before and replaces Events (going by player order, with choices if a player has multiple they're responsible for).
-- Add a 'player order for event' function to game, which starts with the person being targeted (if relevant - else next after current player) then goes clockwise.
 - Add like_ and is_ to cards and play options; No-U needs to look at the reversed_as parameter.
 - Also add these to Public and Private classes, for PlayerActions.

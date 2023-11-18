@@ -19,7 +19,7 @@ deckdict = {Handmaid: 1,
             Nope: 10,
             Princess: 5,
             Capitalist: 10,
-            MiGo: 5,
+            MiGo: 10,
             Cthulhu: 10}
 
 stacks = (

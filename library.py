@@ -2,6 +2,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from cards import *
+from events import Event
 from event_utils import *
 from cl_constants import *
 from utils import *
@@ -50,11 +51,16 @@ class LiberIvonis(ElderSign):
         if self.played_as and self.played_as.mode == INSANE and \
            self.controller == ctx.player:
             def cancel_death(ev):
-                ev.context.death_event.cancel(self)
-            self.do_event(
-                CancelDeathContext(ctx.player, source=self,
-                                   death_event=death_event, death_ctx=ctx),
-                resolve_effect=cancel_death)
+                # Linked event will be the death
+                if ev.linked_post.cancelled:
+                    # Already was stopped; cancel this one too
+                    ev.cancel(FIZZLE)
+                    return
+                ev.linked_post.cancel(self)
+            death_event.first_run(Event(CancelDeathContext(ctx.player, source=self,
+                                                           death_event=death_event,
+                                                           death_ctx=ctx),
+                                        resolve_effect=cancel_death))
     def insane_play_options(self):
         return self.sane_ops_as_insane()
 
@@ -193,7 +199,7 @@ class Prince(Card):
     name = "Prince"
     type_ = PRINCE
     value = 5
-    play_str_fmts = ("How did you {c} no-one?",
+    play_str_fmts = ("How did you manage to {c} no-one?",
                      "Making {po:target} discard.",
                      "Making {po:targets} discard.")
     def on_play(self, play_event):
@@ -247,7 +253,8 @@ class MiGo(Randolph):
                 cards_to_take = [card for card in target.hand]
                 for card in cards_to_take:
                     target.take(card)
-                target.give(BrainCase(self.game))
+                    self.controller.give(card)
+                target.give(BrainCase(game=self.game))
                 self.game.make_play(self.controller)
         else:
             super().on_play(play_event)

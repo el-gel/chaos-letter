@@ -611,8 +611,12 @@ Equivalent to calling queue() on an Event object."""
             self.clear_event_queue()
 
     def pause_events(self):
-        """Pause running through the event queue. clear_event_queue will no longer do anything."""
+        """Pause running through the event queue. clear_event_queue will no longer do anything.
+
+Returns whether the queue was already paused; should only do the next resume if it wasn't."""
+        was_paused = self.events_paused
         self.events_paused = True
+        return was_paused
 
     def resume_events(self, clear=True):
         """Resume running the event queue. Unless clear is False, will start clearing immediately."""
@@ -627,13 +631,14 @@ Equivalent to calling queue() on an Event object."""
         # Fire events from latest first
         # This will do a round the houses, which may cause another Event to be queued
         # If that happens, the firing event will be interrupted, and fired again later
-        # When the last event is fired and not interrupted, resolve it and remove it
+        # When the last event is fired and not interrupted, remove it then resolve it
         while self.event_queue:
             latest = self.event_queue[-1]
             if latest.fired or latest.cancelled:
                 # Remove from queue first. If an exception happens during resolution, this leaves
-                # the Event unresolved, but not being retried.
-                # Don't rely on this, since the Event may not fire when you queue it - the exception may happen only later.
+                # the Event unresolved, but not being retried - we drop the exception out at the point of firing
+                # and the event queue can in theory continue
+                # Don't rely on this for control flow, since the Event may not fire when queued
                 self.event_queue.remove(latest)
                 latest.resolve(self)
             else:
