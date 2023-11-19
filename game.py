@@ -1,3 +1,4 @@
+from collections import defaultdict
 import random
 import logging
 log = logging.getLogger(__name__)
@@ -169,6 +170,13 @@ class Game:
 
     # Info about players, including iterables.
 
+    def player_by_uid(self, uid):
+        """Get the Player object for a specific UID."""
+        for player in self.players:
+            if uid == player.uid:
+                return player
+        return None
+
     def living_players(self):
         """Get a list of living Players. No order guarantee."""
         return [player for player in self.players if player.alive]
@@ -191,7 +199,12 @@ start_after and start_with: only one can be used. Default is after current playe
         elif start_with:
             i = self.player_order.index(start_with)
         else:
-            i = self.player_order.index(self.current_player) + self.turn_order
+            if self.current_player:
+                i = self.player_order.index(self.current_player) + self.turn_order
+            else:
+                # Don't have a current player yet (pre-game?) so just say it's 0
+                log.info("No starting player yet; guessing at the play order.")
+                i = 0
         ret = []
         for j in range(len(self.player_order)):
             next_player = self.player_order[(i+(j*self.turn_order))%len(self.player_order)]
@@ -201,6 +214,9 @@ start_after and start_with: only one can be used. Default is after current playe
 
     def turns_til(self, player):
         """How many turns til this player would get to play? Return -1 if they won't (e.g. dead)."""
+        if not self.current_player:
+            # No idea who would go first
+            return -1
         i = 0
         cur = self.player_order.index(self.current_player)
         while i <= len(self.player_order):
@@ -217,6 +233,8 @@ This order is:
 2) All other players starting after targeter (if relevant - otherwise after current player)."""
         if players is None:
             players = self.living_players()
+        if len(players) <= 1:
+            return players
         ret = []
         if event.is_(CARD_PLAY):
             # Find targets (ignoring current player), then put them in play order
@@ -582,6 +600,32 @@ If none of them left either, then I guess give them a braincase?"""
         self.round_info_history = []
 
     # Event methods (and game 'engine').
+
+    def order_events(self, main_event, ordering_events):
+        """Order multiple events that are supposed to happen at once, related to a main event.
+
+Ordering process:
+1) Find the related player for each event to order (that will be context.player, if around)
+2) If there are multiple for a specific player, then ask them which order they should run in
+3) Then put these all in priority order (determined by main event). Events without a related player go first"""
+        log.debug("Due to:   " + str(main_event))
+        log.debug("Ordering: " + liststr(ordering_events))
+        events_by_uid = defaultdict(list)
+        players = []
+        for event in ordering_events:
+            player = getattr(event.context, "player", None)
+            events_by_uid[player.uid].append(event)
+            if player and player not in players:
+                players.append(player)
+        player_order = self.priority_order(main_event, players)
+        event_order = []
+        # Now have the ordering of Players, so ask each Player what order their events should happen in
+        for player in player_order:
+            event_order.extend(event_ordering_query(player, events_by_uid[player.uid]))
+        # Events without a player just get added on; assumption is they don't matter
+        # TODO: consider making current player decide
+        event_order.extend(events_by_uid[None])
+        return event_order
 
     def queue_events(self, events, clear=True):
         """Put multiple events in the queue, in order they appear here.

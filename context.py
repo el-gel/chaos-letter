@@ -169,6 +169,14 @@ class UseNopeContext(Context):
         self.play_context = play_context
         self.play_option = play_context.play_option
 
+
+class OrderEventsContext(Context):
+    type_ = ORDER_EVENTS
+    # TODO: {contexts}
+    str_fmt = "Asked how to order these events."
+    def __init__(self, contexts):
+        self.contexts = contexts
+
 # Event and Info contexts
 
 class JoinContext(Context):
@@ -245,7 +253,7 @@ class CardPlayContext(Context):
     str_fmt = "{p} goes to play {c} as {po:mode} targeting {po:targets}."
     def __init__(self, play_option):
         # Pretty sure the player will always be this
-        self.player = play_option.card.holder
+        self.player = play_option.card.controller
         self.card = play_option.card
         self.play_option = play_option
 

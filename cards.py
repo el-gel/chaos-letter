@@ -162,6 +162,10 @@ The holder's Player info is also invalidated, which will trigger recreating rele
 
     def reverse_play_options(self, play_option, reverser):
         """Returns a list of PlayOptions that are valid reverses for it. Empty list if not reversible."""
+        # Default is [] if no targets or multiple, else the same option but with holder as target
+        # This doesn't work for multiple targets well, but that may be a small enough list to do manually
+        if len(play_option.targets) == 1:
+            return [play_option.copy(targets=(self.holder,))]
         return []
 
     def valid_targets(self, include_me=False):
@@ -367,6 +371,16 @@ class PlayOption(PublicUser, PrivateUser):
         else:
             self.card.trigger_play_events(self)
 
+    def copy(self, card=None, mode=None, targets=None, parameters=None, quick=None, can_nope=None):
+        card = self.card if card is None else card
+        card = self.mode if mode is None else mode
+        card = tuple(self.targets) if targets is None else targets
+        card = dict(self.parameters) if parameters is None else parameters
+        card = self.quick if quick is None else quick
+        card = self.can_nope if can_nope is None else can_nope
+        return PlayOption(card, mode=mode, targets=targets, parameters=parameters,
+                          quick=quick, can_nope=can_nope)
+        
     @property
     def target(self):
         """Get first target only."""

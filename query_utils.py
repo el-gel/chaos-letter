@@ -64,3 +64,10 @@ def ask_nope_query(asked, play_context):
     return Query(context=UseNopeContext(play_context),
                  options=(NO,YES),
                  outcome=pass_through).ask(asked)
+
+
+def event_ordering_query(asked, event_contexts):
+    """Ask what ordering a bunch of Events should go in."""
+    return Query(context=OrderEventsContext(event_contexts),
+                 options=OrderingOptions(event_contexts),
+                 outcome=pass_through).ask(asked)

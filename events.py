@@ -33,10 +33,12 @@ These are not shown to Players; only internal use."""
         self.resolved = False
         self.pre_events = [] # Events to happen before this, but only if it succeeds
         # Example: Assassin kills, Liber Ivonis blocking death
+        self.queued_pre_events = [] # pre events that have been queued
         self.post_events = [] # Events to happen if this one succeeds
         # Example: Potentially Cardinal looking at ability (distinct from swap)
-        self.linked_pre = None # For linked events - what Event ran before this
-        self.linked_post = None # For linked events - what Event will run after this
+        self.queued_post_events = [] # post events that have been queued
+        self.linked_pre = None # Which Event ran this one as a post_event
+        self.linked_post = None # Which Event ran this one as a pre_event
         self.uid = Event.next_uid
         Event.next_uid += 1
         
@@ -59,6 +61,10 @@ These are not shown to Players; only internal use."""
         self.cancelled = source
         if self.is_(CARD_PLAY):
             self.context.play_option.cancelled = source
+        # Also cancel any queued pre or post events that were waiting to happen
+        for event in self.queued_pre_events + self.queued_post_events:
+            if not event.resolved:
+                event.cancel(FIZZLE)
 
     def first_run(self, other):
         """A.first_run(B) means run B before A, if A succeeds. B is allowed to cancel A."""
@@ -91,8 +97,10 @@ These are not shown to Players; only internal use."""
         if self.pre_events:
             # Need to re-queue; this event was removed before resolution
             self.queue(game)
-            for event in self.pre_events:
+            # Put events in order; this may mean querying players
+            for event in game.order_events(self, self.pre_events):
                 event.linked_post = self
+                self.queued_pre_events.append(event)
                 game.queue_event(event)
             self.pre_events = []
             if not was_paused: game.resume_events()
@@ -112,15 +120,16 @@ These are not shown to Players; only internal use."""
             else:
                 self.resolve_effect()
 
-        # Resolution can mark this as cancelled, which means no post events / info
+        # Resolution marked this as cancelled, which means no post events / info
         if self.cancelled:
             if not was_paused: game.resume_events()
             return
         
         # Just put all the post events on the stack.
         # This interrupts this event, but it's been marked as resolved, so won't try again.
-        for event in self.post_events:
+        for event in game.order_events(self, self.post_events):
             event.linked_pre = self
+            self.queued_post_events.append(event)
             game.queue_event(event)
             
         # TODO: cancelled / not cancelled info. Also check if cancelled here again
@@ -141,4 +150,7 @@ These are not shown to Players; only internal use."""
         return self.context.post_info(self)
     def is_(self, type_):
         return self.context.is_(type_)
+
+    def __str__(self):
+        return "Event: {"+ str(self.context) + "}"
     

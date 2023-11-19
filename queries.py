@@ -6,6 +6,8 @@ log = logging.getLogger(__name__)
 from cl_constants import *
 from access_control import *
 
+from utils import *
+
 def still_ask(query_type):
     return query_type in [WHICH_PLAY, NYARLATHOTEP_RETURN, MULTI_PLAY]
 
@@ -42,18 +44,18 @@ The context is to help the player being asked know what's going on"""
             chosen = player.respond_to_query(privateQ)
         except NotImplementedError:
             chosen = None
-            log.error("Player hasn't implemented a proper response for " + str(self))
+            log.error(str(player) + " hasn't implemented a proper response for " + str(self))
             if self.is_(NYARLATHOTEP_RETURN):
                 log.error("Possibly iterated on a NyarlathotepOption")
         except AttributeError:
             chosen = None
-            log.error("Player tried to edit the query they were given.")
+            log.error(str(player) + " tried to edit the query they were given.")
         if chosen in privateQ.options:
             i = privateQ.options.index(chosen)
             return self.outcome(self.options[i])
         else:
             # I guess we choose for them
-            log.error("Player %s didn't pick a valid option" % player.name)
+            log.error(str(player) + " didn't pick a valid option")
             return self.outcome(random.choice(self.options))
 
     def __str__(self):
@@ -62,14 +64,11 @@ The context is to help the player being asked know what's going on"""
 
 # Specially created option classes, for specific types of Querys
 
-class NyarlathotepOptions:
+class OrderingOptions:
     """List-like object for more safely enumerating n! options.
 Not recommended for Players to enumerate all values.
 Will only ever be on its own, not with other options."""
     def __init__(self, iterable):
-        if len(set(iterable)) != len(iterable):
-            # I can't find a reason this would be needed, as we use uid's not cards
-            raise ValueError("Duplicated values in Nyarlathotep not allowed")
         self._items = tuple(iterable)
     def get_int_items(self):
         return self._items
@@ -86,6 +85,9 @@ Will only ever be on its own, not with other options."""
             ret += j*math.factorial(len(avail))
             i += 1
         return ret
+    def private_info(self, for_):
+        """This is readonly already, so just return self."""
+        return self
     def __getitem__(self, i):
         avail = list(self._items)
         ret = []
@@ -98,15 +100,15 @@ Will only ever be on its own, not with other options."""
     def __len__(self):
         return math.factorial(len(self._items))
     def __contains__(self, item):
-        """self._items should be all unique, and we don't really care about type"""
-        return set(item) == set(self._items) and len(item) == len(self._items)
+        """Compare length and containment."""
+        return all([i in self._items for i in item]) and len(item) == len(self._items)
     def __str__(self):
-        return "All combinations of " + str(self._items)
+        return "All combinations of " + liststr(self._items)
     def __repr__(self):
         return "All combinations of " + repr(self._items)
     def __eq__(self, other):
         if type(other) == type(self):
-            return set(other.get_int_items) == set(self._items)
+            return self._items in other # Use __contains__ logic
         return False
     def __ne__(self, other):
         return not (self == other)
@@ -114,4 +116,12 @@ Will only ever be on its own, not with other options."""
         raise NotImplementedError("If you need to iterate through all options, use itertools.permutations on get_int_items")
     def __setitem__(self, i, item):
         """Read only."""
-        raise NotImplementedError("Nyarlathotep options are read-only")
+        raise NotImplementedError(str(self.__class__) + " is read-only.")
+    def __setattr__(self, name, value):
+        """Read only."""
+        if name in self.__dict__:
+            raise ReadOnlyError("Cannot edit " + str(self.__class__) + " after creation.")
+        super().__setattr__(name, value)
+
+class NyarlathotepOptions(OrderingOptions):
+    pass

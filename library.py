@@ -344,6 +344,21 @@ class Cthulhu(Necronomicon):
         else:
             return []
 
+class Count(Card):
+    name = "Count"
+    type_ = COUNT
+    value = 5
+    def round_end_score_edit(self, in_):
+        if self.discarded:
+            return in_ + 1
+        else:
+            return in_
+
+class NoU(Count):
+    name = "No U"
+    type_ = NO_U
+    # TODO
+
 
 ##ASSASSIN
 ##JESTSASSIN

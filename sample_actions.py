@@ -14,6 +14,7 @@ class RandomActions(PlayerActions):
 class LoggingActions(PlayerActions):
     def setup(self):
         self.infos = []
+        self.queries = []
         self.debug = False
         self.other = None
         self.logging = True
@@ -27,8 +28,9 @@ class LoggingActions(PlayerActions):
             if self.other:
                 print("     " + self.other.name + "'s holding: " + repr(self.other.hand))
     def respond_to_query(self, query):
+        self.queries.append(query)
         if self.logging: print("-----" + self.name + " asked: " + str(query.context))
-        if self.logging: print("     with options: " + str([str(op) for op in query.options]))
+        if self.logging: print("     with options: " + recstr(query.options))
         # For testing, can we select only 4's with guard likes?
         # Also, good to know what's a pain point
         if query.context.type_ == WHICH_PLAY:
@@ -57,4 +59,7 @@ class LoggingActions(PlayerActions):
                     print("###############################")
             if self.logging: print("     Only considering: " + str([str(op) for op in good_ops]))
             return random.choice(good_ops)
-        return random.choice(query.options)
+        if self.logging: print("Picking a random option: ")
+        op = random.choice(query.options)
+        if self.logging: print(recstr(op))
+        return op

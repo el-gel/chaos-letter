@@ -313,13 +313,19 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 - Make repl_str better.
 - json transformation of public/private objects / game state, as a way to pass data to other programs.
 - Maybe linting and typing. If I can be bothered facing that. Nb, this will not be consistently enforced after adding, so I'd rather do this later in one big go, when it's time for others to be implementing bots etc. and there's not going to be much development going on.
-- Cancelled events should give info if cancelled still.
+- Cancelled events should give info if cancelled - but different info.
 - Consistency in what source refers to. Need it to be useful to player bots; ideally, would point to the exact event, but we don't share events, so maybe just the event context.
-- PlayOption mode is a better form of enum, want to say e.g. if po.mode.INSANE
+- PlayOption mode as a better form of enum, want to say e.g. if po.mode.INSANE
 - No-U behaviour: No-U is played as a PlayOption with no-u as card, plus reversing and reversed_as paramters. Each card type needs a reversing function.
 - Rather than doing individual queries, when running events the cards seeing things can return a list of queries (or play events?) that then all get asked at once. Replaces ask_nope function, becomes an ask_quick_play function. Allows forcing and makes clearer which is happening; also allows multiple at once if valid. Does not apply to assassins, since they're forced and only happen when the thing happens.
-- Add a 'run before' to Events, where these Events happen before the attached Event, but only if the main Event happens.
 - Add a 'replaces' to Events, where these Events happen before the attached Event, and cancel the main Event.
 - Add a way to order the run_after, run_before and replaces Events (going by player order, with choices if a player has multiple they're responsible for).
 - Add like_ and is_ to cards and play options; No-U needs to look at the reversed_as parameter.
 - Also add these to Public and Private classes, for PlayerActions.
+- Updating dictionaries / lists in hidden classes should invalidate the public/private forms.
+- Pull card names / values from an external config file rather than in code.
+- Pull card functionality from an external config file rather than in code.
+-- Likely means codifying text and translating card text to code.
+- In order for Assassin etc. pre_events to order properly, they need to appear as a single Event. Need a way to do 'packaged events' in some manner.
+-- Could do it with one Event that has the others as post_events. But then have to be careful that it doesn't get cancelled improperly. I think this works as is at the moment.
+-- Could also have a 'grouping' property of Events, which only matters for the order_events function. This would make queries look a bit weird perhaps, but avoids having dummy Events.
