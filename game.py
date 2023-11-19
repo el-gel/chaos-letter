@@ -607,24 +607,38 @@ If none of them left either, then I guess give them a braincase?"""
 Ordering process:
 1) Find the related player for each event to order (that will be context.player, if around)
 2) If there are multiple for a specific player, then ask them which order they should run in
-3) Then put these all in priority order (determined by main event). Events without a related player go first"""
+3) Then put these all in priority order (determined by main event). Events without a related player go first
+
+Since addition of grouped events, the fundamental unit is a group, not an Event.
+Players don't decide order within groups, just order of groups.
+Order within a group is decided by original ordering_events order."""
+        # TODO: Pretty inefficient. Nb, must always optimise for minimum queries to players.
         log.debug("Due to:   " + str(main_event))
         log.debug("Ordering: " + liststr(ordering_events))
-        events_by_uid = defaultdict(list)
+        event_groups_by_uid = defaultdict(list)
+        event_groups_seen = []
         players = []
         for event in ordering_events:
+            if event.grouping in event_groups_seen:
+                continue
             player = getattr(event.context, "player", None)
-            events_by_uid[player.uid].append(event)
+            event_groups_by_uid[player.uid].append(event.grouping)
+            event_groups_seen.append(event.grouping)
             if player and player not in players:
                 players.append(player)
         player_order = self.priority_order(main_event, players)
         event_order = []
         # Now have the ordering of Players, so ask each Player what order their events should happen in
         for player in player_order:
-            event_order.extend(event_ordering_query(player, events_by_uid[player.uid]))
+            group_order = event_group_ordering_query(player, event_groups_by_uid[player.uid])
+            # That was the order of the groups; for each group, add all its events (in original order)
+            for group in group_order:
+                for event in ordering_events:
+                    if event in group:
+                        event_order.append(event)
         # Events without a player just get added on; assumption is they don't matter
         # TODO: consider making current player decide
-        event_order.extend(events_by_uid[None])
+        event_order.extend([event for event in ordering_events if event not in event_order])
         return event_order
 
     def queue_events(self, events, clear=True):

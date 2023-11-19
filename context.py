@@ -171,11 +171,20 @@ class UseNopeContext(Context):
 
 
 class OrderEventsContext(Context):
+    """contexts is a list of Event contexts."""
     type_ = ORDER_EVENTS
     # TODO: {contexts}
     str_fmt = "Asked how to order these events."
     def __init__(self, contexts):
         self.contexts = contexts
+
+class OrderEventGroupsContext(Context):
+    """grouped_contexts is a list of groups (lists) of contexts."""
+    type_ = ORDER_EVENT_GROUPS
+    # TODO: {list of contexts}
+    str_fmt = "Asked how to order these event groups."
+    def __init__(self, grouped_contexts):
+        self.grouped_contexts = grouped_contexts
 
 # Event and Info contexts
 

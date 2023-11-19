@@ -66,8 +66,12 @@ def ask_nope_query(asked, play_context):
                  outcome=pass_through).ask(asked)
 
 
-def event_ordering_query(asked, event_contexts):
-    """Ask what ordering a bunch of Events should go in."""
-    return Query(context=OrderEventsContext(event_contexts),
-                 options=OrderingOptions(event_contexts),
-                 outcome=pass_through).ask(asked)
+def event_group_ordering_query(asked, event_groups):
+    """Ask what ordering a bunch of Event groups should go in."""
+    actual_events = OrderingOptions(event_groups)
+    contexts_only = OrderingOptions([[ev.context for ev in group] for group in event_groups])
+    def swap_to_events(chosen):
+        return actual_events[contexts_only.index(chosen)]
+    return Query(context=OrderEventGroupsContext(contexts_only),
+                 options=contexts_only,
+                 outcome=swap_to_events).ask(asked)

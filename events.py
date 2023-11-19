@@ -39,6 +39,7 @@ These are not shown to Players; only internal use."""
         self.queued_post_events = [] # post events that have been queued
         self.linked_pre = None # Which Event ran this one as a post_event
         self.linked_post = None # Which Event ran this one as a pre_event
+        self.grouping = [self] # Grouped events; e.g., the discard, draw and play of a Quick Play
         self.uid = Event.next_uid
         Event.next_uid += 1
         
@@ -75,6 +76,16 @@ These are not shown to Players; only internal use."""
     def now_queue(self, game, new_event):
         """Fire off a new Event now; this will interrupt, but Game handles that logic."""
         game.queue_event(new_event)
+    def group_with(self, others):
+        """Group this Event with others. Adds to grouping, not replacement."""
+        all_events = list(self.grouping)
+        # Kind of preserves ordering
+        for event in others:
+            for pre_group_ev in event.grouping:
+                if pre_group_ev not in all_events:
+                    all_events.append(pre_group_eve)
+        for event in all_events:
+            event.grouping = all_events
         
     def resolve(self, game):
         """Run the actual effect of the event, if it wasn't prevented, and fire post events"""
