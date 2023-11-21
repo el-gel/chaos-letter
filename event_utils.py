@@ -28,17 +28,20 @@ def trigger_death(game, player, source=None, card=None):
 # INSANITY_CHECK
 # DEATH
 # PlayOption of the card getting played
-def trigger_discard(game, player, source, card):
+def get_discard_event(player, source, card):
     def do_discard(ev):
         if source == INSANITY_CHECK:
             player.put_in_discard(card)
         else:
             player.hand_to_discard(card)
         card.on_discard(ev)
-    Event(DiscardContext(player, source, card),
-          resolve_effect=do_discard).queue(game)
+    return Event(DiscardContext(player, source, card),
+                 resolve_effect=do_discard)
+    
+def trigger_discard(game, player, source, card):
+    get_discard_event(player, source, card).queue(game)
 
-def trigger_draw(game, player, source, take_from_aside=True):
+def get_draw_event(game, player, source, take_from_aside=True):
     def do_draw(ev):
         # Can raise an EmptyDeckException. If that happens, end the round now
         try:
@@ -50,8 +53,11 @@ def trigger_draw(game, player, source, take_from_aside=True):
         ev.context.card = card
         player.give(card)
         card.on_draw(ev)
-    Event(DrawContext(player, source),
-          resolve_effect=do_draw).queue(game)
+    return Event(DrawContext(player, source),
+                 resolve_effect=do_draw)
+
+def trigger_draw(game, player, source, take_from_aside=True):
+    get_draw_event(game, player, source, take_from_aside).queue(game)
 
 def trigger_round_win(game, player, source):
     def do_win(ev):

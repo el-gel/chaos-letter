@@ -164,6 +164,8 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         """Returns a list of PlayOptions that are valid reverses for it. Empty list if not reversible."""
         # Default is [] if no targets or multiple, else the same option but with holder as target
         # This doesn't work for multiple targets well, but that may be a small enough list to do manually
+        if reverser == play_option.controller:
+            return [] # Can't reverse own thing
         if len(play_option.targets) == 1:
             return [play_option.copy(targets=(self.holder,))]
         return []
@@ -202,29 +204,24 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         """Puts events into the game and also sets how this was played. Does not usually need to be overridden."""
         self.played_as = play_option
         self.turn_played = self.holder.turns_played
-        # Pause the event queue while we put the events on the stack - want the discard to be there alongside the play
-        # Or rather, don't want the queue to clear when we put the discard on, which may include an already played card being responded to
-        self.game.pause_events()
         self.played_events = self.play_events(play_option)
-        self.game.queue_events(self.played_events,clear=False)
-        # Before the play events fire, do a discard
-        trigger_discard(self.game, self.holder, play_option, self)
-        # Now start the queue again
-        self.game.resume_events()
+        # Ordered so the discard happens first
+        all_events = self.played_events + [get_discard_event(self.holder, play_option, self)]
+        # Group together, for ordering purposes
+        all_events[0].group_with(all_events)
+        self.game.queue_events(all_events)
 
     def trigger_quick_play(self, play_option):
         """Puts events into the game for a quick play. Doesn't usually need overriding."""
         self.played_as = play_option
         self.turn_played = self.holder.turns_played
-        # Pause while we set queue events
-        self.game.pause_events()
         self.played_events = self.play_events(play_option)
-        self.game.queue_events(self.played_events, clear=False)
-        # Before the play happens, do a discard then a draw
-        trigger_draw(self.game, self.holder, QUICK_PLAY)
-        trigger_discard(self.game, self.holder, play_option, self)
-        # Now send off
-        self.game.resume_events()
+        # Ordered to discard, draw, then do play events
+        all_events = self.played_events + [get_draw_event(self.game, self.holder, QUICK_PLAY),
+                                           get_discard_event(self.holder, play_option, self)]
+        # Group events together, for ordering purposes
+        all_events[0].group_with(all_events)
+        self.game.queue_events(all_events)
         
     def play_events(self, play_option):
         """This stub is 'run on_play'. Linked, out of turn, or multiple effect cards need to override this method."""
@@ -354,7 +351,7 @@ class PlayOption(PublicUser, PrivateUser):
     _PUBLIC_CLASS = PublicPlayOption
     _PRIVATE_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope")
     _PRIVATE_CLASS = PrivatePlayOption
-    def __init__(self, card, mode=None, targets=(), parameters=None, quick=False, can_nope=False):
+    def __init__(self, card, mode=None, targets=(), parameters=None, quick=False, can_nope=False, controller=None):
         self.card = card
         self.mode = mode if mode else card.name # E.g. Jester/Assassin. Default is fine for single mode cards
         self.targets = targets
@@ -362,6 +359,7 @@ class PlayOption(PublicUser, PrivateUser):
         self.cancelled = False
         self.quick = quick
         self.can_nope = can_nope
+        self.controller = controller if controller else card.controller
         self._reset_public_info()
         self._reset_private_info()
 
