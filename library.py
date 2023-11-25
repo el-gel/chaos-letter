@@ -90,7 +90,7 @@ class Guard(Card):
         if not ret:
             # No targets; so just target no-one and be sad
             ret.append(self.option(targets=()))
-        return [(rr,UNFORCED) for rr in ret]
+        return unforced(ret)
 
 class Investigator(Guard):
     name = "Investigator"
@@ -124,7 +124,6 @@ class DeepOnes(Investigator):
                 if hit:
                     trigger_death(self.game, target, source=po, card=self)
     def insane_play_options(self):
-        # Same as sane options, but with mode INSANE. Doesn't do the right str_fmt when untargeted though.
         return self.sane_ops_as_insane()
 
 
@@ -144,8 +143,8 @@ class Priest(Card):
         for player in self.valid_targets():
             ret.append(self.option(targets=(player,)))
         if not ret:
-            return [(self.option(targets=()), UNFORCED)]
-        return [(rr,UNFORCED) for rr in ret]
+            ret.append(self.option(targets=()))
+        return unforced(ret)
 
 class CatsOfUlthar(Priest):
     name = "Cats of Ulthar"
@@ -168,8 +167,8 @@ class Baroness(Priest):
                     continue
                 ret.append(self.option(targets=(player1,player2)))
         if not ret:
-            return [(self.option(targets=()), UNFORCED)]
-        return [(rr,UNFORCED) for rr in ret]
+            ret.append(self.option(targets=()))
+        return unforced(ret)
 
 
 class Nope(Card):
@@ -215,7 +214,7 @@ class Prince(Card):
         for player in self.valid_targets(include_me=True):
             ret.append(self.option(targets=(player,),
                                    str_fmt="Making {po:target} discard."))
-        return [(rr,UNFORCED) for rr in ret]
+        return unforced(ret)
 
 class Randolph(Prince):
     name = "Randolph Carter"
@@ -236,7 +235,7 @@ class Capitalist(Prince):
             super().on_play(play_event)
     def insane_play_options(self):
         # Currently this doesn't target, only gives second card to controller
-        return [(self.option(targets=(), mode=INSANE), UNFORCED)]
+        return unforced((self.option(targets=(), mode=INSANE),))
 
 class MiGo(Randolph):
     name = "MiGo"
@@ -260,11 +259,11 @@ class MiGo(Randolph):
             super().on_play(play_event)
     def insane_play_options(self):
         # Can't target self with this - but can target no-one
-        ret = [(self.option(mode=INSANE, targets=(player,)),UNFORCED)
+        ret = [self.option(mode=INSANE, targets=(player,))
                  for player in self.valid_targets()]
         if not ret:
-            ret.append((self.option(mode=INSANE, targets=()), UNFORCED))
-        return ret
+            ret.append(self.option(mode=INSANE, targets=()))
+        return unforced(ret)
 
 class Princess(Card):
     name = "Princess"
@@ -286,11 +285,11 @@ class Princess(Card):
                       source=discard_event.context.source, card=self)
     def sane_play_options(self):
         # Princess can't be nope'd - not that it would have stopped the death
-        ret = [(self.option(can_nope=False), UNFORCED)]
+        ret = [self.option(can_nope=False)]
         if all([card.value == 8 for card in self.holder.hand]):
-            ret.append((self.option(mode=SHUFFLE, can_nope=False,
-                                    str_fmt="Shuffling unsuspiciously."), UNFORCED))
-        return ret
+            ret.append(self.option(mode=SHUFFLE, can_nope=False,
+                                   str_fmt="Shuffling unsuspiciously."))
+        return unforced(ret)
 
 class Necronomicon(Princess):
     name = "Necronomicon"
@@ -340,7 +339,7 @@ class Cthulhu(Necronomicon):
         # This card was played for the discard, and it's active. on_play will win for us
     def insane_play_options(self):
         if self.cthulhu_active():
-            return [(self.option(mode=INSANE), UNFORCED)]
+            return unforced((self.option(mode=INSANE),))
         else:
             return []
 

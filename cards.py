@@ -143,7 +143,7 @@ The holder's Player info is also invalidated, which will trigger recreating rele
     
     def sane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden."""
-        return [(self.option(), UNFORCED)]
+        return unforced((self.option(),))
     
     def insane_play_options(self):
         """Returns a list of (PlayOption, forcing_level) tuples. Should be overridden for insane cards."""
@@ -169,6 +169,8 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         if len(play_option.targets) == 1:
             return [play_option.copy(targets=(self.holder,))]
         return []
+
+    # Convenience functions for PlayOption generation.
 
     def valid_targets(self, include_me=False):
         """All possible targets in the game."""
@@ -386,3 +388,13 @@ class PlayOption(PublicUser, PrivateUser):
             return self.targets[0]
         return None
 
+
+# Convenience functions that don't need to be methods.
+
+def unforced(options):
+    """Return the right tuple format for these options, unforced."""
+    return forced(options, level=UNFORCED)
+
+def forced(options, level=FORCED):
+    """Return the right tuple format for these options, forced. Optional forcing level."""
+    return [(op, level) for op in options]
