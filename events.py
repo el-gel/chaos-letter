@@ -24,9 +24,10 @@ class Event:
     """An event that is about to happen and can be interacted with.
 These are not shown to Players; only internal use."""
     next_uid = 0
-    def __init__(self, context, resolve_effect=None):
+    def __init__(self, context, resolve_effect=None, if_cancelled=None):
         self.context = context
         self.resolve_effect = resolve_effect
+        self.if_cancelled = if_cancelled
         self.cancelled = False
         self.fired = False
         self.tried_to_fire = False
@@ -86,13 +87,24 @@ These are not shown to Players; only internal use."""
                     all_events.append(pre_group_ev)
         for event in all_events:
             event.grouping = all_events # Same ref for all; could use that?
+
+    def callback(self, fn, game):
+        """Run a callback for a (possibly None) function, accounting for its parameters."""
+        if fn:
+            # Allow Event callbacks to be of the following forms:
+            # f()
+            # f(this_event)
+            # f(this_event, game)
+            if (argc := num_args(fn)) == 2:
+                fn(self, game)
+            elif argc == 1:
+                fn(self)
+            else:
+                fn()
         
     def resolve(self, game):
         """Run the actual effect of the event, if it wasn't prevented, and fire post events"""
-        if self.cancelled:
-            self.resolved = True
-            # TODO: Cancelled info?
-            return
+        
         # TODO: ordering of pre / post events
         # Try to find the associated player, and then go in that order
         # If multiple events for a player, ask them the ordering
@@ -100,6 +112,13 @@ These are not shown to Players; only internal use."""
 
         # Events should not fire during resolution - but they may be put on the queue
         was_paused = game.pause_events()
+
+        if self.cancelled:
+            self.resolved = True
+            self.callback(self.if_cancelled, game)
+            if not was_paused: game.resume_events()
+            # TODO: Cancelled info?
+            return
         
         # If there are any pre-events, then queue them all and return
         # We leave this unresolved so that it fires again (if not cancelled)
@@ -119,20 +138,12 @@ These are not shown to Players; only internal use."""
         
         # No pre events; so now this is considered resolved
         self.resolved = True
-        if self.resolve_effect:
-            # Allow Event callbacks to be of the following forms:
-            # f()
-            # f(this_event)
-            # f(this_event, game)
-            if (argc := num_args(self.resolve_effect)) == 2:
-                self.resolve_effect(self, game)
-            elif argc == 1:
-                self.resolve_effect(self)
-            else:
-                self.resolve_effect()
+        self.callback(self.resolve_effect, game)
 
         # Resolution marked this as cancelled, which means no post events / info
         if self.cancelled:
+            # TODO: cancelled info?
+            self.callback(self.if_cancelled, game)
             if not was_paused: game.resume_events()
             return
         
