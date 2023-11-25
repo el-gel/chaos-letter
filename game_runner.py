@@ -40,8 +40,8 @@ def two_immortals():
          GUARD, LIBER_IVONIS, GUARD, LIBER_IVONIS),
         )
     g = Game()
-    p1 = Player(g, action_class=LoggingActions, name="Alice")
-    p2 = Player(g, action_class=LoggingActions, name="Brian")
+    p1 = Player(g, action_class=BasicActions, name="Alice")
+    p2 = Player(g, action_class=BasicActions, name="Brian")
     #p2.actions.debug = True
     #p2.actions.other = public(p1, p2)
     p2.actions.logging = False

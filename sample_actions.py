@@ -11,26 +11,53 @@ class RandomActions(PlayerActions):
         pass # I don't care!
 
 
-class LoggingActions(PlayerActions):
+def log_actions(cls):
+    class LoggingActions(cls):
+        def setup(self):
+            super().setup()
+            self.infos = []
+            self.queries = []
+            self.debug = False
+            self.logging = True
+        # Yes this can be done with the logging module. Improve later.
+        def log(self, s):
+            if self.logging:
+                print(s)
+        def dbg(self, s):
+            if self.debug:
+                self.log(s)
+        def log_query_in(self, query):
+            self.queries.append(query)
+            self.log("--"+self.name[0]+"--" + self.name + " asked: " + str(query.context))
+            self.log("     with options: " + recstr(query.options))
+        def log_query_out(self, query, resp):
+            self.log("      Picking:")
+            self.log(recstr(resp))
+        def log_info(self, info):
+            self.infos.append(info)
+            self.log("["+self.name[0]+" "+str(len(self.infos)-1) + "] To " + self.name + ": " + str(info.context))
+        def info_event(self, info):
+            self.log_info(info)
+            if self.debug:
+                card = getattr(info.context, "card", None)
+                if card:
+                    self.log("     Relevant card is: " + repr(card))
+            super().info_event(info)
+        def respond_to_query(self, query):
+            self.log_query_in(query)
+            resp = super().respond_to_query(query)
+            self.log_query_out(query, resp)
+            return resp
+    return LoggingActions
+
+@log_actions
+class BasicActions(PlayerActions):
     def setup(self):
-        self.infos = []
-        self.queries = []
-        self.debug = False
         self.other = None
-        self.logging = True
     def info_event(self, info):
-        self.infos.append(info)
-        if self.logging: print("["+str(len(self.infos)-1) + "] To " + self.name + ": " + str(info.context))
-        if self.debug and self.logging:
-            card = getattr(info.context, "card", None)
-            if card:
-                print("     Relevant card is: " + repr(card))
-            if self.other:
-                print("     " + self.other.name + "'s holding: " + repr(self.other.hand))
+        if self.debug and self.other:
+            self.log("     " + self.other.name + "'s holding: " + repr(self.other.hand))
     def respond_to_query(self, query):
-        self.queries.append(query)
-        if self.logging: print("-----" + self.name + " asked: " + str(query.context))
-        if self.logging: print("     with options: " + recstr(query.options))
         # For testing, can we select only 4's with guard likes?
         # Also, good to know what's a pain point
         if query.context.type_ == WHICH_PLAY:
@@ -53,13 +80,7 @@ class LoggingActions(PlayerActions):
                 good_ops = ins_ops
             if LIB:
                 good_ops = [LIB]
-                if self.logging:
-                    print("###############################")
-                    print("###########IMMORTAL############")
-                    print("###############################")
-            if self.logging: print("     Only considering: " + str([str(op) for op in good_ops]))
+            self.log("     Only considering: " + recstr(good_ops))
             return random.choice(good_ops)
-        if self.logging: print("Picking a random option: ")
-        op = random.choice(query.options)
-        if self.logging: print(recstr(op))
-        return op
+        self.log("Picking a random option: ")
+        return random.choice(query.options)
