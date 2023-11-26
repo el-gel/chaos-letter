@@ -717,15 +717,20 @@ Returns True if the Event got through uninterrupted."""
         for player in self.priority_order(event):
             # Cards in the player's hand or discard are what can respond
             # Player itself doesn't see things, unless Querys come in
-            # The cards have the business logic on them, in on_event
-            for hand_card in player.hand:
-                hand_card.see_event(event)
-                if self.firing_interrupted:
-                    event.interrupt()
-                    return False
-            for disc_card in player.discard:
-                disc_card.see_event(event)
-                if self.firing_interrupted:
-                    event.interrupt()
-                    return False
+            # The cards have the business logic on them, in see_event
+            # If a card can be optionally used as a quick play, it returns
+            # the PlayOptions from see_event
+            # Then the player is asked which one they want to use, if any
+            all_responses = []
+            for card in player.discard + player.hand:
+                quick_responses = card.see_event(event)
+                if quick_responses:
+                    all_responses.extend(quick_responses)
+            pick = ask_quick_play_query(player, event.context, all_responses)
+            if pick != NO:
+                # This is a PlayOption which should be set as quick play appropriately
+                pick.trigger()
+            if self.firing_interrupted:
+                event.interrupt()
+                return False
         return True

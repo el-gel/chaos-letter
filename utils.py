@@ -71,7 +71,7 @@ def split_context(ctx, obj, call_str, *args, **kwargs):
     """Call specific methods of obj depending on context type. Uses lowercased type names.
 
 obj: Object with relevant methods.
-call_str: String with {t} representing relevant methods.
+call_str: String with {t} for type_, representing relevant methods.
 Will use {t} as 'other' if no method exists.
 Check EVENT_TYPES for valid options."""
     desired = call_str.replace("{t}", ctx.type_.lower())

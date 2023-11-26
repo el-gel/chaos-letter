@@ -330,3 +330,4 @@ Game objects that bots will see, and links between (ignoring links that are hidd
 -- Could do it with one Event that has the others as post_events. But then have to be careful that it doesn't get cancelled improperly. I think this works as is at the moment.
 -- Could also have a 'grouping' property of Events, which only matters for the order_events function. This would make queries look a bit weird perhaps, but avoids having dummy Events. This is the approach I'm going for.
 - OrderingOptions should have a public/private component, and making a Query with one should be able to automatically convert back.
+- Querys which can have multiple/zero responses?

@@ -179,7 +179,7 @@ class Nope(Card):
     cardback = LOVECRAFT
     def on_play(self, play_event):
         po = play_event.context.play_option
-        if po.mode == ACTIVE_NOPE:
+        if po.mode == QUICK:
             po.parameters["cancelling"].card.cancel(self)
     def see_card_play_event(self, ev):
         if self.discarded:
@@ -187,12 +187,9 @@ class Nope(Card):
         ctx = ev.context
         if ctx.play_option.can_nope and ctx.card.controller != self.holder and \
            not ev.cancelled:
-            if ask_nope_query(self.holder, ctx) == YES:
-                nope_option = self.option(mode=ACTIVE_NOPE,
-                                          targets=(ctx.card.controller,),
-                                          parameters={"cancelling":ctx.play_option},
-                                          quick=True)
-                self.trigger_quick_play(nope_option)
+            return [self.option(mode=QUICK, targets=(ctx.card.controller,),
+                                parameters={"cancelling":ctx.play_option},
+                                quick=True)]
 
 class Prince(Card):
     name = "Prince"
@@ -358,16 +355,17 @@ class Count(Card):
 #  reversed_as: the new PlayOption
 # To play, set the controller of the card being reversed to this card's controller
 # Then trigger the reversed_as PlayOption for that card
-# The reversed_as PlayOption gets a reversed: True parameter set, but in theory that shouldn't be needed
+# The reversed_as PlayOption gets a reversed and reversed_by parameter set, but in theory that shouldn't be needed
 class NoU(Count):
     name = "No U"
     type_ = NO_U
     def on_play(self, play_event):
         po = play_event.context.play_option
         reversing = po.param("reversing")
-        if po.mode == QUICK_PLAY and reversing and not reversing.cancelled:
-            # Cancel the original Event via the PlayOption
+        if po.mode == QUICK and reversing and not reversing.cancelled:
+            # Cancel the original Event via the PlayOption, and set reversed_by
             reversing.cancel(po)
+            reversing.parameters["reversed_by"] = po
             # Run the new one, after changing the card's controller
             new_po = po.param("reversed_as")
             other_card = new_po.card
@@ -382,20 +380,17 @@ class NoU(Count):
     def see_card_play_event(self, play_event):
         if self.discarded:
             return
-        ctx = play_event.context
-        po = ctx.play_option
+        po = play_event.context.play_option
         if not self.can_no_u(po):
             return
         rev_ops = po.card.reverse_play_options(po, self.controller)
-        pick = ask_no_u_query(self.holder, ctx, rev_ops)
-        if pick != NO:
-            pick.parameters["reversed"] = True
-            new_params = {"reversing": po,
-                          "reversed_as": pick}
-            new_po = self.option(mode=QUICK_PLAY, targets=pick.targets,
-                                 parameters=new_params, quick=True,
-                                 str_fmt="No U on {po:targets}, as {po:reversed_as}.")
-            self.trigger_quick_play(new_po)
+        new_ops = [self.option(mode=QUICK, targets=rev_op.targets,
+                               parameters={"reversing": po,
+                                           "reversed_as": rev_op},
+                               quick=True,
+                               str_fmt="No U on {po:targets}, as {po:reversed_as}")
+                   for rev_op in rev_ops]
+        return new_ops
 
 
 ##ASSASSIN

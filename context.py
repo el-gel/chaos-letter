@@ -176,6 +176,13 @@ class UseNoUContext(Context):
         self.play_context = play_context
         self.play_option = play_context.play_option
 
+class WhichQuickPlayContext(Context):
+    type_ = WHICH_QUICK_PLAY
+    str_fmt = "Asked whether to respond to {po}."
+    def __init__(self, play_context):
+        self.play_context = play_context
+        self.play_option = getattr(play_context, "play_option", None)
+
 class OrderEventsContext(Context):
     """contexts is a list of Event contexts."""
     type_ = ORDER_EVENTS

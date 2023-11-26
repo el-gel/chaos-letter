@@ -68,6 +68,12 @@ def ask_no_u_query(asked, play_context, reverse_ops):
                  options=(NO,) + tuple(reverse_ops),
                  outcome=pass_through).ask(asked)
 
+def ask_quick_play_query(asked, play_context, quick_play_ops):
+    """Ask whether the player wants to respond to the play with one of their quick play options."""
+    return Query(context=WhichQuickPlayContext(play_context),
+                 options=(NO,) + tuple(quick_play_ops),
+                 outcome=pass_through).ask(asked)
+
 def event_group_ordering_query(asked, event_groups):
     """Ask what ordering a bunch of Event groups should go in."""
     actual_events = OrderingOptions(event_groups)

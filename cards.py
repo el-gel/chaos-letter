@@ -168,7 +168,8 @@ The holder's Player info is also invalidated, which will trigger recreating rele
             return [] # Can't reverse own thing
         if len(play_option.targets) == 1:
             return [play_option.copy(targets=(play_option.controller,),
-                                     controller=reverser)]
+                                     controller=reverser,
+                                     parameters={"reversed":True})]
         # TODO: can surely make a good default for multiple targets too
         return []
 
@@ -275,14 +276,14 @@ The holder's Player info is also invalidated, which will trigger recreating rele
     def see_event(self, event):
         # For cards that do something when something happens; e.g. Constable heart, or no-U.
         # Default behaviour is to use a context splitter to make sub-overriding better.
-        split_context(event.context, self, "see_{t}_event", event)
+        return split_context(event.context, self, "see_{t}_event", event)
 
     def see_other_event(self, other_event):
         # Required for the context splitter to work.
         pass
 
     def round_end_score_edit(self, in_):
-        """Mostly just for Counts."""
+        """Make any edits to the current owner's end of round score. Return the new value."""
         # Make sure to check if card's actually discarded, if relevant.
         return in_
 
@@ -378,7 +379,8 @@ class PlayOption(PublicUser, PrivateUser):
         card = self.card if card is None else card
         mode = self.mode if mode is None else mode
         targets = tuple(self.targets) if targets is None else targets
-        parameters = dict(self.parameters) if parameters is None else parameters
+        # Merge if parameters is given, preferring the new ones
+        parameters = dict(self.parameters) if parameters is None else {**self.parameters, **parameters}
         quick = self.quick if quick is None else quick
         can_nope = self.can_nope if can_nope is None else can_nope
         controller = self.controller if controller else controller
