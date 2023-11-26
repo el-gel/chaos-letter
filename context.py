@@ -64,7 +64,7 @@ def repl_str(rstr, ctx):
                 ret = ret.replace(match.group(0), str(ctx.play_option.mode))
             else:
                 ret = ret.replace(match.group(0),
-                    str(ctx.play_option.parameters.get(param, NOT_SET + " ["+param+"]")))
+                    recstr(ctx.play_option.parameters.get(param, NOT_SET + " ["+param+"]")))
         else:
             ret = ret.replace(match.group(0), NOT_SET)
     while match := re.search(r"\{ps\:(\d*)\}", ret):
@@ -169,6 +169,12 @@ class UseNopeContext(Context):
         self.play_context = play_context
         self.play_option = play_context.play_option
 
+class UseNoUContext(Context):
+    type_ = USE_NO_U
+    str_fmt = "Asked whether to no-u {po}."
+    def __init__(self, play_context):
+        self.play_context = play_context
+        self.play_option = play_context.play_option
 
 class OrderEventsContext(Context):
     """contexts is a list of Event contexts."""

@@ -167,7 +167,9 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         if reverser == play_option.controller:
             return [] # Can't reverse own thing
         if len(play_option.targets) == 1:
-            return [play_option.copy(targets=(self.holder,))]
+            return [play_option.copy(targets=(play_option.controller,),
+                                     controller=reverser)]
+        # TODO: can surely make a good default for multiple targets too
         return []
 
     # Convenience functions for PlayOption generation.
@@ -303,13 +305,13 @@ The holder's Player info is also invalidated, which will trigger recreating rele
         self.take_from_holder()
         self.give_to(other)
 
-    def do_event(self, context, resolve_effect=None):
+    def do_event(self, context, resolve_effect=None, if_cancelled=None):
         """Run an Event with this context and effect."""
-        Event(context, resolve_effect).queue(self.game)
+        Event(context, resolve_effect, if_cancelled).queue(self.game)
 
-    def do_after(self, event, context, resolve_effect=None):
+    def do_after(self, event, context, resolve_effect=None, if_cancelled=None):
         """Do a new Event conditional on event happening."""
-        event.then_run(Event(context, resolve_effect))
+        event.then_run(Event(context, resolve_effect, if_cancelled))
 
     @property
     def faceup(self):
@@ -349,9 +351,9 @@ class PrivatePlayOption(PrivateData):
 
 
 class PlayOption(PublicUser, PrivateUser):
-    _PUBLIC_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope")
+    _PUBLIC_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope", "controller")
     _PUBLIC_CLASS = PublicPlayOption
-    _PRIVATE_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope")
+    _PRIVATE_ATTRS = ("card", "mode", "targets", "parameters", "cancelled", "quick", "can_nope", "controller")
     _PRIVATE_CLASS = PrivatePlayOption
     def __init__(self, card, mode=None, targets=(), parameters=None, quick=False, can_nope=False, controller=None):
         self.card = card
@@ -371,15 +373,25 @@ class PlayOption(PublicUser, PrivateUser):
         else:
             self.card.trigger_play_events(self)
 
-    def copy(self, card=None, mode=None, targets=None, parameters=None, quick=None, can_nope=None):
+    def copy(self, card=None, mode=None, targets=None, parameters=None,
+             quick=None, can_nope=None, controller=None):
         card = self.card if card is None else card
-        card = self.mode if mode is None else mode
-        card = tuple(self.targets) if targets is None else targets
-        card = dict(self.parameters) if parameters is None else parameters
-        card = self.quick if quick is None else quick
-        card = self.can_nope if can_nope is None else can_nope
+        mode = self.mode if mode is None else mode
+        targets = tuple(self.targets) if targets is None else targets
+        parameters = dict(self.parameters) if parameters is None else parameters
+        quick = self.quick if quick is None else quick
+        can_nope = self.can_nope if can_nope is None else can_nope
+        controller = self.controller if controller else controller
         return PlayOption(card, mode=mode, targets=targets, parameters=parameters,
-                          quick=quick, can_nope=can_nope)
+                          quick=quick, can_nope=can_nope, controller=controller)
+
+    def cancel(self, source):
+        self.card.cancel(source)
+
+    def param(self, name, default=None):
+        if name in self.parameters:
+            return self.parameters[name]
+        return default
         
     @property
     def target(self):

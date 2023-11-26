@@ -16,10 +16,9 @@ def which_play_query(play_options):
     """Get a WhichPlayContext query, asking which card to play."""
     def which_outcome(chosen):
         chosen.trigger()
-    return Query(
-        context=WhichPlayContext(),
-        options=play_options,
-        outcome=which_outcome)
+    return Query(context=WhichPlayContext(),
+                 options=play_options,
+                 outcome=which_outcome)
 
 def multi_play_query(play_options):
     """Get a MultiPlayContext query.
@@ -30,10 +29,9 @@ Maybe the options should be 'which order do you want to play in?'"""
         # Ignore chosen, so we later don't have to expose it all to Player actions
         for play_option in play_options:
             play_option.trigger()
-    return Query(
-        context=MultiPlayContext(),
-        options=(play_options,),
-        outcome=cos_outcome)
+    return Query(context=MultiPlayContext(),
+                 options=(play_options,),
+                 outcome=cos_outcome)
 
 def ask_who_starts(game, asked):
     """Ask a WhoStartsContext query."""
@@ -42,10 +40,9 @@ def ask_who_starts(game, asked):
             game.current_player = chosen
         Event(StartingContext(chosen, asked),
               resolve_effect=do_set).queue(game)
-    return Query(
-        context=WhoStartsContext(),
-        options=game.players,
-        outcome=who_outcome).ask(asked)
+    return Query(context=WhoStartsContext(),
+                 options=game.players,
+                 outcome=who_outcome).ask(asked)
 
 def ask_which_card(asked, context):
     """Ask which card to get involved in something."""
@@ -65,6 +62,11 @@ def ask_nope_query(asked, play_context):
                  options=(NO,YES),
                  outcome=pass_through).ask(asked)
 
+def ask_no_u_query(asked, play_context, reverse_ops):
+    """Ask whether the player wants to No U a specific play, and how to do so."""
+    return Query(context=UseNoUContext(play_context),
+                 options=(NO,) + tuple(reverse_ops),
+                 outcome=pass_through).ask(asked)
 
 def event_group_ordering_query(asked, event_groups):
     """Ask what ordering a bunch of Event groups should go in."""

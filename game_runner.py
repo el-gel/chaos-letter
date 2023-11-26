@@ -27,20 +27,21 @@ def two_immortals():
         LiberIvonis: 8,
         Guard: 10,
         DeepOnes: 1,
-        Priest: 10,
+        Priest: 20,
         Prince: 10,
         Nope: 10,
-        Princess: 5,
-        Capitalist: 10,
+        NoU: 20,
+        Princess: 1,
+        Capitalist: 1,
         MiGo: 10,
-        Cthulhu: 10})
+        Cthulhu: 1})
 
     stacking = (
         (LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, LIBER_IVONIS, # Force immortality
          GUARD, LIBER_IVONIS, GUARD, LIBER_IVONIS),
         )
     g = Game()
-    p1 = Player(g, action_class=BasicActions, name="Alice")
+    p1 = Player(g, action_class=InteractiveActions, name="Alice")
     p2 = Player(g, action_class=BasicActions, name="Brian")
     #p2.actions.debug = True
     #p2.actions.other = public(p1, p2)

@@ -84,3 +84,15 @@ class BasicActions(PlayerActions):
             return random.choice(good_ops)
         self.log("Picking a random option: ")
         return random.choice(query.options)
+
+@log_actions
+class InteractiveActions(PlayerActions):
+    def info_event(self, info):
+        pass
+    def respond_to_query(self, query):
+        try:
+            i = int(input("Which i? "))
+            return query.options[i]
+        except:
+            self.log("Error, picking randomly.")
+            return random.choice(query.options)

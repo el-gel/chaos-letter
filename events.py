@@ -173,6 +173,14 @@ These are not shown to Players; only internal use."""
     def is_(self, type_):
         return self.context.is_(type_)
 
+    # Prevent Event leaking by only giving the context - but should not happen
+    def public_info(self, for_):
+        log.warn("Public info called for an Event object: " + str(self))
+        return public(self.context, for_)
+    def private_info(self, for_):
+        log.warn("Private info called for an Event object: " + str(self))
+        return private(self.context, for_)
+
     def __str__(self):
         return "Event: {"+ str(self.context) + "}"
     

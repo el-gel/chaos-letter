@@ -353,10 +353,49 @@ class Count(Card):
         else:
             return in_
 
+# Active No U has a play option with the following parameters:
+#  reversing: the PlayOption being targeted
+#  reversed_as: the new PlayOption
+# To play, set the controller of the card being reversed to this card's controller
+# Then trigger the reversed_as PlayOption for that card
+# The reversed_as PlayOption gets a reversed: True parameter set, but in theory that shouldn't be needed
 class NoU(Count):
     name = "No U"
     type_ = NO_U
-    # TODO
+    def on_play(self, play_event):
+        po = play_event.context.play_option
+        reversing = po.param("reversing")
+        if po.mode == QUICK_PLAY and reversing and not reversing.cancelled:
+            # Cancel the original Event via the PlayOption
+            reversing.cancel(po)
+            # Run the new one, after changing the card's controller
+            new_po = po.param("reversed_as")
+            other_card = new_po.card
+            other_card.controller = self.controller
+            new_events = other_card.play_events(new_po)
+            self.game.queue_events(new_events)
+        else:
+            # Flip the turn order
+            self.game.turn_order *= -1
+    def can_no_u(self, play_option):
+        return self.holder in play_option.targets
+    def see_card_play_event(self, play_event):
+        if self.discarded:
+            return
+        ctx = play_event.context
+        po = ctx.play_option
+        if not self.can_no_u(po):
+            return
+        rev_ops = po.card.reverse_play_options(po, self.controller)
+        pick = ask_no_u_query(self.holder, ctx, rev_ops)
+        if pick != NO:
+            pick.parameters["reversed"] = True
+            new_params = {"reversing": po,
+                          "reversed_as": pick}
+            new_po = self.option(mode=QUICK_PLAY, targets=pick.targets,
+                                 parameters=new_params, quick=True,
+                                 str_fmt="No U on {po:targets}, as {po:reversed_as}.")
+            self.trigger_quick_play(new_po)
 
 
 ##ASSASSIN
